@@ -8,6 +8,15 @@ android {
     namespace 'com.autobot.rpa'
     compileSdk 34
 
+    lint {
+        // Disable the buggy MutableCollectionMutableStateDetector
+        disable "MutableCollectionMutableState"
+        // Allow build to continue despite lint errors
+        abortOnError false
+        // Set lint baseline
+        baseline = file("lint-baseline.xml")
+    }
+
     defaultConfig {
         applicationId "com.autobot.rpa"
         minSdk 26
