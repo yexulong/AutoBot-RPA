@@ -1,10 +1,15 @@
 package com.autobot.rpa.ui.screens
 
+import android.content.Context
+import android.os.Build
+import android.provider.Settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.autobot.rpa.data.model.Script
 import com.autobot.rpa.data.repository.ScriptRepository
 import com.autobot.rpa.service.AutomationEngine
+import com.autobot.rpa.service.AutoBotAccessibilityService
+import com.autobot.rpa.service.ServiceBridge
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,8 +32,17 @@ class ScriptExecutionViewModel @Inject constructor(
     private val _selectedScript = MutableStateFlow<Script?>(null)
     val selectedScript: StateFlow<Script?> = _selectedScript
 
+    private val _selectedRunMode = MutableStateFlow<AutomationEngine.RunMode>(AutomationEngine.RunMode.EXECUTE)
+    val selectedRunMode: StateFlow<AutomationEngine.RunMode> = _selectedRunMode
+
     init {
         loadScripts()
+        ServiceBridge.setAutomationEngine(automationEngine)
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        // 不要清理，因为 ServiceBridge 需要在 ViewModel 销毁后仍然可用
     }
 
     private fun loadScripts() {
@@ -58,6 +72,11 @@ class ScriptExecutionViewModel @Inject constructor(
         _selectedScript.value = script
     }
 
+    fun selectRunMode(mode: AutomationEngine.RunMode) {
+        _selectedRunMode.value = mode
+        automationEngine.setRunMode(mode)
+    }
+
     fun startExecution() {
         _selectedScript.value?.let { script ->
             automationEngine.startExecution(script)
@@ -78,5 +97,17 @@ class ScriptExecutionViewModel @Inject constructor(
 
     fun clearLogs() {
         automationEngine.clearLogs()
+    }
+
+    fun isAccessibilityServiceEnabled(): Boolean {
+        return AutoBotAccessibilityService.isAccessibilityServiceEnabled()
+    }
+
+    fun checkOverlayPermission(context: Context): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            Settings.canDrawOverlays(context)
+        } else {
+            true
+        }
     }
 }

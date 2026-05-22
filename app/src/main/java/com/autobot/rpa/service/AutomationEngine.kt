@@ -1,6 +1,7 @@
 package com.autobot.rpa.service
 
 import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.os.Build
@@ -25,6 +26,7 @@ class AutomationEngine @Inject constructor(
 ) {
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private var executionJob: Job? = null
+    private var currentScript: Script? = null
 
     private val _executionState = MutableStateFlow<ExecutionState>(ExecutionState.Idle)
     val executionState: StateFlow<ExecutionState> = _executionState
@@ -53,11 +55,26 @@ class AutomationEngine @Inject constructor(
         INFO, SUCCESS, WARNING, ERROR
     }
 
+    enum class RunMode {
+        DEBUG, EXECUTE
+    }
+
+    private val _currentRunMode = MutableStateFlow<RunMode>(RunMode.EXECUTE)
+    val currentRunMode: StateFlow<RunMode> = _currentRunMode
+
+    fun setRunMode(mode: RunMode) {
+        _currentRunMode.value = mode
+        log("Run mode set to: ${mode.name}", LogType.INFO)
+    }
+
     fun startExecution(script: Script) {
         if (_executionState.value == ExecutionState.Running) {
             log("Script is already running", LogType.WARNING)
             return
         }
+
+        currentScript = script
+        FloatingWindowService.setCurrentScriptId(script.id)
 
         executionJob = scope.launch {
             _executionState.value = ExecutionState.Running
@@ -67,21 +84,32 @@ class AutomationEngine @Inject constructor(
             log("Starting script: ${script.name}")
             AutoBotForegroundService.startService(context)
             AutoBotForegroundService.updateNotification(script.name)
+            
+            val floatingModeName = when (_currentRunMode.value) {
+                RunMode.DEBUG -> "DEBUG"
+                RunMode.EXECUTE -> "EXECUTION"
+            }
+            FloatingWindowService.startServiceWithName(context, floatingModeName, script.name)
 
             try {
                 scriptRepository.incrementRunCount(script.id)
                 executeActions(script.actions)
-                _executionState.value = ExecutionState.Completed(script.id)
+                _executionState.value = ExecutionState.Idle
                 log("Script completed successfully", LogType.SUCCESS)
+                FloatingWindowService.updateStep("✅ 执行完成")
             } catch (e: CancellationException) {
                 log("Script execution cancelled", LogType.WARNING)
                 _executionState.value = ExecutionState.Idle
+                FloatingWindowService.updateStep("⏹️ 已取消")
             } catch (e: Exception) {
-                log("Script execution failed: ${e.message}", LogType.ERROR)
-                _executionState.value = ExecutionState.Error(e.message ?: "Unknown error")
+                val errorMessage = e.message ?: "Unknown error"
+                log("Script execution failed: $errorMessage", LogType.ERROR)
+                _executionState.value = ExecutionState.Idle
+                FloatingWindowService.updateStep("❌ 执行失败: $errorMessage")
             } finally {
                 delay(1000)
                 AutoBotForegroundService.stopService(context)
+                // 不自动关闭悬浮窗，让用户自己关闭
             }
         }
     }
@@ -105,6 +133,14 @@ class AutomationEngine @Inject constructor(
         _executionState.value = ExecutionState.Idle
         _currentActionIndex.value = -1
         log("Script stopped", LogType.WARNING)
+        FloatingWindowService.updateStep("⏹️ 已停止")
+        // 不自动关闭悬浮窗，让用户自己关闭
+    }
+
+    fun rerunCurrentScript() {
+        currentScript?.let { script ->
+            startExecution(script)
+        }
     }
 
     private suspend fun executeActions(actions: List<ScriptAction>) {
@@ -122,6 +158,24 @@ class AutomationEngine @Inject constructor(
             val action = actions[index]
             _currentActionIndex.value = index
 
+            val actionName = when (action) {
+                is ScriptAction.Tap -> "Tap (${action.x}, ${action.y})"
+                is ScriptAction.Swipe -> "Swipe"
+                is ScriptAction.LongPress -> "LongPress (${action.x}, ${action.y})"
+                is ScriptAction.TextInput -> "TextInput: ${action.text}"
+                is ScriptAction.KeyPress -> "KeyPress: ${action.keyCode}"
+                is ScriptAction.Delay -> "Delay: ${action.milliseconds}ms"
+                is ScriptAction.Screenshot -> "Screenshot"
+                is ScriptAction.FindImage -> "FindImage"
+                is ScriptAction.LoopStart -> "LoopStart"
+                is ScriptAction.LoopEnd -> "LoopEnd"
+                is ScriptAction.Condition -> "Condition"
+                is ScriptAction.Comment -> "Comment: ${action.text}"
+            }
+            
+            val stepInfo = "Step ${index + 1}/${actions.size}: $actionName"
+            FloatingWindowService.updateStep(stepInfo)
+            
             log("Executing: ${action::class.simpleName}", LogType.INFO)
             executeAction(action)
 
@@ -168,13 +222,11 @@ class AutomationEngine @Inject constructor(
             }
 
             is ScriptAction.KeyPress -> {
-                // 优先使用 AccessibilityService 的方式
                 var success = false
                 if (accessibilityService != null) {
                     success = accessibilityService.performKeyEventWithDelay(action.keyCode)
                 }
                 
-                // 如果失败，使用备用方式
                 if (!success) {
                     sendKeyEvent(action.keyCode)
                 }
@@ -229,9 +281,7 @@ class AutomationEngine @Inject constructor(
     }
 
     private fun sendKeyEvent(keyCode: Int) {
-        // 尝试多种方式发送按键事件
         try {
-            // 方式1：尝试通过 Activity（仅适用于自己的应用内）
             (context as? android.app.Activity)?.let { activity ->
                 val eventTime = System.currentTimeMillis()
                 val downEvent = KeyEvent(
@@ -252,7 +302,6 @@ class AutomationEngine @Inject constructor(
                 activity.dispatchKeyEvent(upEvent)
             }
         } catch (e: Exception) {
-            // 忽略错误
         }
     }
 
@@ -298,6 +347,14 @@ class AutomationEngine @Inject constructor(
             currentLogs.removeAt(0)
         }
         _logs.value = currentLogs
+        
+        val typePrefix = when (type) {
+            LogType.INFO -> "[INFO]"
+            LogType.SUCCESS -> "[OK]"
+            LogType.WARNING -> "[WARN]"
+            LogType.ERROR -> "[ERR]"
+        }
+        FloatingWindowService.addLog("$typePrefix $message")
     }
 
     fun clearLogs() {

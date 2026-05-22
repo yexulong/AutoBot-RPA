@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/overlay_card_background"
+    android:elevation="16dp">
+
+    <LinearLayout
+        android:id="@+id/drag_handle"
+        android:layout_width="match_parent"
+        android:layout_height="36dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="12dp"
+        android:paddingEnd="8dp"
+        android:clickable="true"
+        android:focusable="true">
+
+        <View
+            android:layout_width="4dp"
+            android:layout_height="20dp"
+            android:background="#2196F3"
+            android:layout_marginEnd="10dp" />
+
+        <TextView
+            android:id="@+id/title_text"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="AutoBot"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <ImageView
+            android:id="@+id/btn_close"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:src="@android:drawable/ic_menu_close_clear_cancel"
+            android:contentDescription="关闭"
+            android:padding="6dp" />
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#33FFFFFF" />
+
+    <LinearLayout
+        android:id="@+id/debug_container"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="12dp">
+
+        <TextView
+            android:id="@+id/status_text"
+            android:layout_width="280dp"
+            android:layout_height="wrap_content"
+            android:text="就绪"
+            android:textColor="#FFFFFF"
+            android:textSize="13sp"
+            android:maxLines="5"
+            android:layout_marginBottom="8dp" />
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btn_rerun"
+                android:layout_width="80dp"
+                android:layout_height="40dp"
+                android:text="重新运行"
+                android:textSize="13sp"
+                android:textColor="#FFFFFF"
+                android:background="@drawable/btn_confirm_background"
+                android:layout_marginEnd="8dp"
+                android:stateListAnimator="@null" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/execution_container"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="12dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/step_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="执行中..."
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"
+            android:layout_marginBottom="8dp" />
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btn_rerun_exec"
+                android:layout_width="80dp"
+                android:layout_height="40dp"
+                android:text="重新运行"
+                android:textSize="13sp"
+                android:textColor="#FFFFFF"
+                android:background="@drawable/btn_confirm_background"
+                android:layout_marginEnd="8dp"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/btn_stop"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:text="停止"
+                android:textSize="14sp"
+                android:textColor="#FFFFFF"
+                android:background="@drawable/btn_cancel_background"
+                android:stateListAnimator="@null" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</LinearLayout>

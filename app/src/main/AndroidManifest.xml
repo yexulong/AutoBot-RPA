@@ -56,6 +56,10 @@
             android:name=".service.CoordinateRecorderService"
             android:exported="false" />
 
+        <service
+            android:name=".service.FloatingWindowService"
+            android:exported="false" />
+
     </application>
 
 </manifest>

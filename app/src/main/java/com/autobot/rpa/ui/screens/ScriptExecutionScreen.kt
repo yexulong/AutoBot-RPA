@@ -1,5 +1,11 @@
 package com.autobot.rpa.ui.screens
 
+import android.app.Activity
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -9,11 +15,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.autobot.rpa.R
 import com.autobot.rpa.service.AutomationEngine
+import com.autobot.rpa.service.FloatingWindowService
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -24,8 +32,13 @@ fun ScriptExecutionScreen(
 ) {
     val scripts by viewModel.scripts.collectAsState()
     val selectedScript by viewModel.selectedScript.collectAsState()
+    val selectedRunMode by viewModel.selectedRunMode.collectAsState()
     val executionState by viewModel.executionState.collectAsState()
     val logs by viewModel.logs.collectAsState()
+    val context = LocalContext.current
+    
+    var showAccessibilityDialog by remember { mutableStateOf(false) }
+    var showOverlayDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -85,22 +98,67 @@ fun ScriptExecutionScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
+                    Text(
+                        text = "Select Run Mode",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        when (executionState) {
-                            is AutomationEngine.ExecutionState.Idle -> {
-                                Button(
-                                    onClick = { viewModel.startExecution() },
-                                    enabled = selectedScript != null,
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Icon(Icons.Default.PlayArrow, contentDescription = null)
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Run")
-                                }
+                        RadioButton(
+                            selected = selectedRunMode == AutomationEngine.RunMode.EXECUTE,
+                            onClick = { viewModel.selectRunMode(AutomationEngine.RunMode.EXECUTE) }
+                        )
+                        Text(
+                            text = "Execute",
+                            modifier = Modifier.weight(1f)
+                        )
+                        RadioButton(
+                            selected = selectedRunMode == AutomationEngine.RunMode.DEBUG,
+                            onClick = { viewModel.selectRunMode(AutomationEngine.RunMode.DEBUG) }
+                        )
+                        Text(
+                            text = "Debug",
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    when (executionState) {
+                        is AutomationEngine.ExecutionState.Idle, 
+                        is AutomationEngine.ExecutionState.Completed, 
+                        is AutomationEngine.ExecutionState.Error -> {
+                            Button(
+                                onClick = { 
+                                    when {
+                                        !viewModel.isAccessibilityServiceEnabled() -> {
+                                            showAccessibilityDialog = true
+                                        }
+                                        !viewModel.checkOverlayPermission(context) -> {
+                                            showOverlayDialog = true
+                                        }
+                                        else -> {
+                                            viewModel.startExecution()
+                                            minimizeApp(context as Activity)
+                                        }
+                                    }
+                                },
+                                enabled = selectedScript != null,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(Icons.Default.PlayArrow, contentDescription = null)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Run")
                             }
+                        }
                             is AutomationEngine.ExecutionState.Running -> {
                                 Button(
                                     onClick = { viewModel.pauseExecution() },
@@ -143,26 +201,8 @@ fun ScriptExecutionScreen(
                                     Text("Stop")
                                 }
                             }
-                            is AutomationEngine.ExecutionState.Completed -> {
-                                Button(
-                                    onClick = { viewModel.stopExecution() },
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Icon(Icons.Default.Refresh, contentDescription = null)
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Reset")
-                                }
-                            }
-                            is AutomationEngine.ExecutionState.Error -> {
-                                Button(
-                                    onClick = { viewModel.stopExecution() },
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Icon(Icons.Default.Refresh, contentDescription = null)
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Reset")
-                                }
-                            }
+
+
                         }
                     }
 
@@ -267,4 +307,56 @@ fun ScriptExecutionScreen(
             }
         }
     }
+    
+    if (showAccessibilityDialog) {
+        AlertDialog(
+            onDismissRequest = { showAccessibilityDialog = false },
+            title = { Text("需要无障碍服务权限") },
+            text = { Text("脚本执行功能需要无障碍服务权限，请在设置中开启") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                        context.startActivity(intent)
+                        showAccessibilityDialog = false
+                    }
+                ) {
+                    Text("去设置")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAccessibilityDialog = false }) {
+                    Text("取消")
+                }
+            }
+        )
+    }
+    
+    if (showOverlayDialog) {
+        AlertDialog(
+            onDismissRequest = { showOverlayDialog = false },
+            title = { Text("需要悬浮窗权限") },
+            text = { Text("脚本执行功能需要悬浮窗权限，请在设置中开启") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + context.packageName))
+                        context.startActivity(intent)
+                        showOverlayDialog = false
+                    }
+                ) {
+                    Text("去设置")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showOverlayDialog = false }) {
+                    Text("取消")
+                }
+            }
+        )
+    }
+}
+
+private fun minimizeApp(activity: Activity) {
+    activity.moveTaskToBack(true)
 }
