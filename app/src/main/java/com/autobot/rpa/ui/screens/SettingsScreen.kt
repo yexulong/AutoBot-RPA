@@ -1,10 +1,10 @@
 package com.autobot.rpa.ui.screens
 
-import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
 import android.provider.Settings
-import android.view.accessibility.AccessibilityManager
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -15,22 +15,45 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.autobot.rpa.R
 import com.autobot.rpa.service.AutoBotAccessibilityService
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen() {
     val context = LocalContext.current
-    val accessibilityManager = context.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
-    val accessibilityServiceInfo = accessibilityManager.getEnabledAccessibilityServiceList(
-        AccessibilityServiceInfo.FEEDBACK_ALL_MASK
-    )
-
-    val isAccessibilityEnabled = accessibilityServiceInfo.any {
-        it.resolveInfo.serviceInfo.packageName == context.packageName
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val scope = rememberCoroutineScope()
+    
+    var isAccessibilityEnabled by remember { mutableStateOf(AutoBotAccessibilityService.isAccessibilityServiceEnabled()) }
+    var isOverlayGranted by remember { mutableStateOf(checkOverlayPermission(context)) }
+    
+    // 监听生命周期，当页面恢复时重新检查权限
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                isAccessibilityEnabled = AutoBotAccessibilityService.isAccessibilityServiceEnabled()
+                isOverlayGranted = checkOverlayPermission(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+    
+    // 监听 AutoBotAccessibilityService 的状态流
+    LaunchedEffect(Unit) {
+        AutoBotAccessibilityService.isServiceRunning.collect { running ->
+            isAccessibilityEnabled = running
+        }
     }
 
     Scaffold(
@@ -78,18 +101,26 @@ fun SettingsScreen() {
                 SettingsItem(
                     icon = Icons.Default.PictureInPicture,
                     title = "Overlay Permission",
-                    description = "Required for drawing UI elements",
+                    description = if (isOverlayGranted) "Granted" else "Required for drawing UI elements",
                     trailing = {
-                        Button(
-                            onClick = {
-                                val intent = Intent(
-                                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                    android.net.Uri.parse("package:${context.packageName}")
-                                )
-                                context.startActivity(intent)
+                        if (!isOverlayGranted) {
+                            Button(
+                                onClick = {
+                                    val intent = Intent(
+                                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                        Uri.parse("package:${context.packageName}")
+                                    )
+                                    context.startActivity(intent)
+                                }
+                            ) {
+                                Text("Grant")
                             }
-                        ) {
-                            Text("Grant")
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.secondary
+                            )
                         }
                     }
                 )
@@ -127,6 +158,14 @@ fun SettingsScreen() {
                 )
             }
         }
+    }
+}
+
+private fun checkOverlayPermission(context: Context): Boolean {
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        Settings.canDrawOverlays(context)
+    } else {
+        true
     }
 }
 

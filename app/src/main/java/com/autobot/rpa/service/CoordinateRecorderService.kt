@@ -104,8 +104,11 @@ class CoordinateRecorderService : Service() {
     }
 
     private fun clearAllIndicators() {
-        coordinateIndicators.forEach { it.visibility = View.GONE }
-        rippleViews.forEach { it.visibility = View.GONE }
+        val indicatorsContainer = overlayView?.findViewById<ViewGroup>(R.id.indicators_container)
+        coordinateIndicators.forEach { indicatorsContainer?.removeView(it) }
+        rippleViews.forEach { indicatorsContainer?.removeView(it) }
+        coordinateIndicators.clear()
+        rippleViews.clear()
         updateUIState()
     }
 

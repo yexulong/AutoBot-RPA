@@ -35,6 +35,21 @@ class ScriptExecutionViewModel @Inject constructor(
         viewModelScope.launch {
             scriptRepository.getAllScripts().collect { scriptList ->
                 _scripts.value = scriptList
+                
+                // 如果有选中的脚本，尝试从新列表中找到更新后的版本
+                val currentSelected = _selectedScript.value
+                if (currentSelected != null) {
+                    val updatedScript = scriptList.find { it.id == currentSelected.id }
+                    if (updatedScript != null) {
+                        _selectedScript.value = updatedScript
+                    } else if (scriptList.isNotEmpty()) {
+                        // 如果原来的脚本被删除了，选中第一个脚本
+                        _selectedScript.value = scriptList.first()
+                    } else {
+                        // 如果没有脚本了，清空选中状态
+                        _selectedScript.value = null
+                    }
+                }
             }
         }
     }
