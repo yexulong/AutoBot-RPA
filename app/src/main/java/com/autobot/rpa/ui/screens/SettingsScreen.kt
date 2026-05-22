@@ -1,6 +1,6 @@
 package com.autobot.rpa.ui.screens
 
-import android.accessibilityService.AccessibilityServiceInfo
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings

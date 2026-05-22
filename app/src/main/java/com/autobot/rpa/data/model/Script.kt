@@ -227,7 +227,7 @@ class ScriptConverters {
             "KeyPress" -> ScriptAction.KeyPress(id, order, json.getInt("keyCode"))
             "Delay" -> ScriptAction.Delay(id, order, json.getInt("milliseconds"))
             "Screenshot" -> ScriptAction.Screenshot(id, order, json.getString("fileName"))
-            "FindImage" -> ScriptAction.FindImage(id, order, json.getString("templatePath"), json.optInt("timeout", 5000), json.optBoolean("saveResult", false), json.optString("resultVarName", null))
+            "FindImage" -> ScriptAction.FindImage(id, order, json.getString("templatePath"), json.optInt("timeout", 5000), json.optBoolean("saveResult", false), json.optString("resultVarName", ""))
             "LoopStart" -> ScriptAction.LoopStart(id, order, json.optInt("times", -1), json.optBoolean("infinite", false))
             "LoopEnd" -> ScriptAction.LoopEnd(id, order)
             "Condition" -> ScriptAction.Condition(id, order, ConditionType.valueOf(json.getString("conditionType")), json.optString("param1", ""), json.optString("param2", ""), json.optString("param3", ""))

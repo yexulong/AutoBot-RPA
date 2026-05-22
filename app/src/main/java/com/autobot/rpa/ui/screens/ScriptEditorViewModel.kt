@@ -18,7 +18,7 @@ class ScriptEditorViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    private val scriptId: Long = savedStateHandle["scriptId"] ?: -1L
+    private val scriptId: Long = savedStateHandle.get<String>("scriptId")?.toLongOrNull() ?: -1L
 
     private val _script = MutableStateFlow<Script?>(null)
     val script: StateFlow<Script?> = _script
@@ -48,9 +48,26 @@ class ScriptEditorViewModel @Inject constructor(
         }
     }
 
+    private fun ScriptAction.withOrder(newOrder: Int): ScriptAction {
+        return when (this) {
+            is ScriptAction.Tap -> copy(order = newOrder)
+            is ScriptAction.Swipe -> copy(order = newOrder)
+            is ScriptAction.LongPress -> copy(order = newOrder)
+            is ScriptAction.TextInput -> copy(order = newOrder)
+            is ScriptAction.KeyPress -> copy(order = newOrder)
+            is ScriptAction.Delay -> copy(order = newOrder)
+            is ScriptAction.Screenshot -> copy(order = newOrder)
+            is ScriptAction.FindImage -> copy(order = newOrder)
+            is ScriptAction.LoopStart -> copy(order = newOrder)
+            is ScriptAction.LoopEnd -> copy(order = newOrder)
+            is ScriptAction.Condition -> copy(order = newOrder)
+            is ScriptAction.Comment -> copy(order = newOrder)
+        }
+    }
+
     fun addAction(action: ScriptAction) {
         val currentActions = _actions.value.toMutableList()
-        val newAction = action.copy(order = currentActions.size)
+        val newAction = action.withOrder(currentActions.size)
         currentActions.add(newAction)
         _actions.value = currentActions
         _hasChanges.value = true
@@ -70,7 +87,7 @@ class ScriptEditorViewModel @Inject constructor(
         val currentActions = _actions.value.toMutableList()
         currentActions.removeAll { it.id == actionId }
         _actions.value = currentActions.mapIndexed { index, scriptAction ->
-            scriptAction.copy(order = index)
+            scriptAction.withOrder(index)
         }
         _hasChanges.value = true
     }
@@ -83,7 +100,7 @@ class ScriptEditorViewModel @Inject constructor(
         val action = currentActions.removeAt(fromIndex)
         currentActions.add(toIndex, action)
         _actions.value = currentActions.mapIndexed { index, scriptAction ->
-            scriptAction.copy(order = index)
+            scriptAction.withOrder(index)
         }
         _hasChanges.value = true
     }

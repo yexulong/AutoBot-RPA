@@ -15,12 +15,10 @@ import android.view.KeyEvent
 import androidx.core.app.NotificationCompat
 import com.autobot.rpa.MainActivity
 import com.autobot.rpa.R
-import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
-@AndroidEntryPoint
 class AutoBotForegroundService : Service() {
 
     private val binder = LocalBinder()
@@ -36,6 +34,8 @@ class AutoBotForegroundService : Service() {
         private val _currentScriptName = MutableStateFlow("")
         val currentScriptName: StateFlow<String> = _currentScriptName
 
+        private var instance: AutoBotForegroundService? = null
+
         fun startService(context: Context) {
             val intent = Intent(context, AutoBotForegroundService::class.java)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -49,17 +49,28 @@ class AutoBotForegroundService : Service() {
             val intent = Intent(context, AutoBotForegroundService::class.java)
             context.stopService(intent)
         }
+
+        fun updateNotification(scriptName: String) {
+            instance?.updateNotificationInternal(scriptName)
+        }
     }
 
     inner class LocalBinder : Binder() {
         fun getService(): AutoBotForegroundService = this@AutoBotForegroundService
     }
 
-    override fun onBind(intent: Intent): IBinder = binder
-
     override fun onCreate() {
         super.onCreate()
+        instance = this
         createNotificationChannel()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        instance = null
+        _isRunning.value = false
+        _currentScriptName.value = ""
+        scope.cancel()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -68,11 +79,8 @@ class AutoBotForegroundService : Service() {
         return START_STICKY
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        _isRunning.value = false
-        _currentScriptName.value = ""
-        scope.cancel()
+    override fun onBind(intent: Intent?): IBinder {
+        return binder
     }
 
     private fun createNotificationChannel() {
@@ -115,10 +123,14 @@ class AutoBotForegroundService : Service() {
             .build()
     }
 
-    fun updateNotification(scriptName: String) {
+    private fun updateNotificationInternal(scriptName: String) {
         _currentScriptName.value = scriptName
         val notification = createNotification()
         val notificationManager = getSystemService(NotificationManager::class.java)
         notificationManager.notify(NOTIFICATION_ID, notification)
+    }
+
+    fun updateNotification(scriptName: String) {
+        updateNotificationInternal(scriptName)
     }
 }

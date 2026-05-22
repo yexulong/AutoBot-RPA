@@ -14,6 +14,8 @@ import kotlinx.coroutines.flow.StateFlow
 
 class AutoBotAccessibilityService : AccessibilityService() {
 
+    private var isConnected = false
+
     companion object {
         private val _isServiceRunning = MutableStateFlow(false)
         val isServiceRunning: StateFlow<Boolean> = _isServiceRunning
@@ -22,7 +24,7 @@ class AutoBotAccessibilityService : AccessibilityService() {
 
         fun getInstance(): AutoBotAccessibilityService? = serviceInstance
 
-        fun isAccessibilityServiceEnabled(): Boolean = serviceInstance != null && serviceInstance?.isConnected == true
+        fun isAccessibilityServiceEnabled(): Boolean = serviceInstance?.isConnected == true
     }
 
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
@@ -35,6 +37,7 @@ class AutoBotAccessibilityService : AccessibilityService() {
 
     override fun onDestroy() {
         super.onDestroy()
+        isConnected = false
         serviceInstance = null
         _isServiceRunning.value = false
         scope.cancel()
@@ -42,6 +45,7 @@ class AutoBotAccessibilityService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        isConnected = true
         serviceInstance = this
         _isServiceRunning.value = true
     }

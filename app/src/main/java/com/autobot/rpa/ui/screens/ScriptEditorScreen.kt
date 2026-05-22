@@ -1,5 +1,6 @@
 package com.autobot.rpa.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -242,7 +243,7 @@ fun AddActionDialog(
             LazyColumn {
                 items(actions.size) { index ->
                     val (name, icon, description) = actions[index]
-                    ListItem(
+                    ActionListItem(
                         headlineContent = { Text(name) },
                         supportingContent = { Text(description) },
                         leadingContent = {
@@ -250,19 +251,19 @@ fun AddActionDialog(
                         },
                         modifier = Modifier.clickable {
                             val action = when (name) {
-                                "Tap" -> ScriptAction.Tap(x = 500, y = 500)
-                                "Swipe" -> ScriptAction.Swipe(startX = 500, startY = 1000, endX = 500, endY = 500)
-                                "Long Press" -> ScriptAction.LongPress(x = 500, y = 500)
-                                "Text Input" -> ScriptAction.TextInput(text = "Hello")
-                                "Key Press" -> ScriptAction.KeyPress(keyCode = 4)
-                                "Delay" -> ScriptAction.Delay(milliseconds = 1000)
-                                "Screenshot" -> ScriptAction.Screenshot(fileName = "screenshot")
-                                "Find Image" -> ScriptAction.FindImage(templatePath = "", timeout = 5000)
-                                "Loop Start" -> ScriptAction.LoopStart(times = 3)
-                                "Loop End" -> ScriptAction.LoopEnd()
-                                "Condition" -> ScriptAction.Condition(type = com.autobot.rpa.data.model.ConditionType.IMAGE_FOUND)
-                                "Comment" -> ScriptAction.Comment(text = "Comment")
-                                else -> return@ListItem
+                                "Tap" -> ScriptAction.Tap(id = java.util.UUID.randomUUID().toString(), order = 0, x = 500, y = 500)
+                                "Swipe" -> ScriptAction.Swipe(id = java.util.UUID.randomUUID().toString(), order = 0, startX = 500, startY = 1000, endX = 500, endY = 500)
+                                "Long Press" -> ScriptAction.LongPress(id = java.util.UUID.randomUUID().toString(), order = 0, x = 500, y = 500)
+                                "Text Input" -> ScriptAction.TextInput(id = java.util.UUID.randomUUID().toString(), order = 0, text = "Hello")
+                                "Key Press" -> ScriptAction.KeyPress(id = java.util.UUID.randomUUID().toString(), order = 0, keyCode = 4)
+                                "Delay" -> ScriptAction.Delay(id = java.util.UUID.randomUUID().toString(), order = 0, milliseconds = 1000)
+                                "Screenshot" -> ScriptAction.Screenshot(id = java.util.UUID.randomUUID().toString(), order = 0, fileName = "screenshot")
+                                "Find Image" -> ScriptAction.FindImage(id = java.util.UUID.randomUUID().toString(), order = 0, templatePath = "", timeout = 5000)
+                                "Loop Start" -> ScriptAction.LoopStart(id = java.util.UUID.randomUUID().toString(), order = 0, times = 3)
+                                "Loop End" -> ScriptAction.LoopEnd(id = java.util.UUID.randomUUID().toString(), order = 0)
+                                "Condition" -> ScriptAction.Condition(id = java.util.UUID.randomUUID().toString(), order = 0, type = com.autobot.rpa.data.model.ConditionType.IMAGE_FOUND)
+                                "Comment" -> ScriptAction.Comment(id = java.util.UUID.randomUUID().toString(), order = 0, text = "Comment")
+                                else -> return@clickable
                             }
                             onActionSelected(action)
                         }
@@ -280,7 +281,7 @@ fun AddActionDialog(
 }
 
 @Composable
-private fun ListItem(
+private fun ActionListItem(
     headlineContent: @Composable () -> Unit,
     modifier: Modifier = Modifier,
     supportingContent: @Composable (() -> Unit)? = null,
@@ -289,7 +290,6 @@ private fun ListItem(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clickable { }
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -303,7 +303,3 @@ private fun ListItem(
         }
     }
 }
-
-private fun Modifier.clickable(onClick: () -> Unit): Modifier = this.then(
-    androidx.compose.foundation.clickable(onClick = onClick)
-)

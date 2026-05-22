@@ -4,7 +4,8 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.os.Build
-import android.view.input_method.InputMethodManager
+import android.view.KeyEvent
+import android.view.inputmethod.InputMethodManager
 import com.autobot.rpa.data.model.Script
 import com.autobot.rpa.data.model.ScriptAction
 import com.autobot.rpa.data.repository.ScriptRepository
@@ -109,14 +110,14 @@ class AutomationEngine @Inject constructor(
     private suspend fun executeActions(actions: List<ScriptAction>) {
         var index = 0
         while (index < actions.size) {
-            if (!isActive) break
+            if (executionJob?.isActive != true) break
 
             while (_executionState.value == ExecutionState.Paused) {
                 delay(100)
-                if (!isActive) break
+                if (executionJob?.isActive != true) break
             }
 
-            if (!isActive) break
+            if (executionJob?.isActive != true) break
 
             val action = actions[index]
             _currentActionIndex.value = index
@@ -214,10 +215,6 @@ class AutomationEngine @Inject constructor(
         clipboard.setPrimaryClip(clip)
 
         delay(200)
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            imm.setAdditionalMimeTypes(arrayOf("text/plain", "text/*"))
-        }
     }
 
     private fun sendKeyEvent(keyCode: Int) {
