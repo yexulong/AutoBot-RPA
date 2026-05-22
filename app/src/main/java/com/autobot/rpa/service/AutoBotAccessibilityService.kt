@@ -2,12 +2,15 @@ package com.autobot.rpa.service
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
+import android.content.Context
 import android.content.Intent
 import android.graphics.Path
 import android.graphics.PixelFormat
 import android.os.Build
+import android.view.KeyEvent
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
+import android.view.inputmethod.InputMethodManager
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -138,6 +141,45 @@ class AutoBotAccessibilityService : AccessibilityService() {
         return withContext(Dispatchers.Main) {
             delay(delayMs)
             performLongPress(x, y, duration)
+        }
+    }
+
+    fun performKeyEvent(keyCode: Int): Boolean {
+        if (!isConnected) return false
+        
+        // 首先尝试使用 AccessibilityService 的全局操作（最可靠的方式）
+        return try {
+            when (keyCode) {
+                KeyEvent.KEYCODE_HOME -> {
+                    performGlobalAction(GLOBAL_ACTION_HOME)
+                    return true
+                }
+                KeyEvent.KEYCODE_BACK -> {
+                    performGlobalAction(GLOBAL_ACTION_BACK)
+                    return true
+                }
+                KeyEvent.KEYCODE_RECENT_APPS -> {
+                    performGlobalAction(GLOBAL_ACTION_RECENTS)
+                    return true
+                }
+                KeyEvent.KEYCODE_POWER -> {
+                    performGlobalAction(GLOBAL_ACTION_POWER_DIALOG)
+                    return true
+                }
+            }
+            
+            // 对于其他按键，暂时不支持（需要更高权限）
+            false
+        } catch (e: Exception) {
+            // 如果所有方法都失败，返回 false
+            false
+        }
+    }
+
+    suspend fun performKeyEventWithDelay(keyCode: Int, delayMs: Long = 100): Boolean {
+        return withContext(Dispatchers.Main) {
+            delay(delayMs)
+            performKeyEvent(keyCode)
         }
     }
 }

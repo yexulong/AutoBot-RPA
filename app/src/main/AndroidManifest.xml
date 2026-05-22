@@ -52,6 +52,10 @@
                 android:value="automation" />
         </service>
 
+        <service
+            android:name=".service.CoordinateRecorderService"
+            android:exported="false" />
+
     </application>
 
 </manifest>

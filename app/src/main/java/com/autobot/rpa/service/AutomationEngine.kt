@@ -168,8 +168,19 @@ class AutomationEngine @Inject constructor(
             }
 
             is ScriptAction.KeyPress -> {
-                sendKeyEvent(action.keyCode)
-                log("Pressed key: ${action.keyCode}", LogType.SUCCESS)
+                // 优先使用 AccessibilityService 的方式
+                var success = false
+                if (accessibilityService != null) {
+                    success = accessibilityService.performKeyEventWithDelay(action.keyCode)
+                }
+                
+                // 如果失败，使用备用方式
+                if (!success) {
+                    sendKeyEvent(action.keyCode)
+                }
+                
+                val keyName = getKeyName(action.keyCode)
+                log("Pressed key: $keyName (${action.keyCode})", LogType.SUCCESS)
             }
 
             is ScriptAction.Delay -> {
@@ -218,10 +229,55 @@ class AutomationEngine @Inject constructor(
     }
 
     private fun sendKeyEvent(keyCode: Int) {
-        val keyEvent = KeyEvent(KeyEvent.ACTION_DOWN, keyCode)
-        val dispatcher = (context as? android.app.Activity)?.dispatchKeyEvent(keyEvent)
-        val keyEventUp = KeyEvent(KeyEvent.ACTION_UP, keyCode)
-        (context as? android.app.Activity)?.dispatchKeyEvent(keyEventUp)
+        // 尝试多种方式发送按键事件
+        try {
+            // 方式1：尝试通过 Activity（仅适用于自己的应用内）
+            (context as? android.app.Activity)?.let { activity ->
+                val eventTime = System.currentTimeMillis()
+                val downEvent = KeyEvent(
+                    eventTime - 100,
+                    eventTime - 100,
+                    KeyEvent.ACTION_DOWN,
+                    keyCode,
+                    0
+                )
+                val upEvent = KeyEvent(
+                    eventTime,
+                    eventTime,
+                    KeyEvent.ACTION_UP,
+                    keyCode,
+                    0
+                )
+                activity.dispatchKeyEvent(downEvent)
+                activity.dispatchKeyEvent(upEvent)
+            }
+        } catch (e: Exception) {
+            // 忽略错误
+        }
+    }
+
+    private fun getKeyName(keyCode: Int): String {
+        return when (keyCode) {
+            KeyEvent.KEYCODE_HOME -> "HOME"
+            KeyEvent.KEYCODE_BACK -> "BACK"
+            KeyEvent.KEYCODE_MENU -> "MENU"
+            KeyEvent.KEYCODE_CALL -> "CALL"
+            KeyEvent.KEYCODE_ENDCALL -> "ENDCALL"
+            KeyEvent.KEYCODE_VOLUME_UP -> "VOLUME_UP"
+            KeyEvent.KEYCODE_VOLUME_DOWN -> "VOLUME_DOWN"
+            KeyEvent.KEYCODE_POWER -> "POWER"
+            KeyEvent.KEYCODE_CAMERA -> "CAMERA"
+            KeyEvent.KEYCODE_ENTER -> "ENTER"
+            KeyEvent.KEYCODE_DEL -> "DEL"
+            KeyEvent.KEYCODE_FORWARD_DEL -> "FORWARD_DEL"
+            KeyEvent.KEYCODE_DPAD_UP -> "DPAD_UP"
+            KeyEvent.KEYCODE_DPAD_DOWN -> "DPAD_DOWN"
+            KeyEvent.KEYCODE_DPAD_LEFT -> "DPAD_LEFT"
+            KeyEvent.KEYCODE_DPAD_RIGHT -> "DPAD_RIGHT"
+            KeyEvent.KEYCODE_DPAD_CENTER -> "DPAD_CENTER"
+            KeyEvent.KEYCODE_RECENT_APPS -> "RECENT_APPS"
+            else -> "KEYCODE_$keyCode"
+        }
     }
 
     private suspend fun takeScreenshot(fileName: String) {
