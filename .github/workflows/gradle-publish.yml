@@ -30,11 +30,12 @@ jobs:
       run: ./gradlew assembleDebug
 
     - name: Decode keystore
-      if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+      if: ${{ github.event_name == 'release' }}
       run: |
         echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d &gt; app/autobot-release-key.keystore
 
     - name: Build Release APK
+      if: ${{ github.event_name == 'release' }}
       env:
         KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
