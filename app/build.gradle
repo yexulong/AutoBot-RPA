@@ -9,11 +9,8 @@ android {
     compileSdk 34
 
     lint {
-        // Disable the buggy MutableCollectionMutableStateDetector
         disable "MutableCollectionMutableState"
-        // Allow build to continue despite lint errors
         abortOnError false
-        // Set lint baseline
         baseline = file("lint-baseline.xml")
     }
 
@@ -32,11 +29,14 @@ android {
 
     signingConfigs {
         release {
-            if (System.getenv("KEYSTORE_PASSWORD") != null &amp;&amp; System.getenv("KEY_ALIAS") != null &amp;&amp; System.getenv("KEY_PASSWORD") != null) {
+            def keystorePassword = System.getenv("KEYSTORE_PASSWORD")
+            def keyAlias = System.getenv("KEY_ALIAS")
+            def keyPassword = System.getenv("KEY_PASSWORD")
+            if (keystorePassword != null && keyAlias != null && keyPassword != null) {
                 storeFile file("autobot-release-key.keystore")
-                storePassword System.getenv("KEYSTORE_PASSWORD")
-                keyAlias System.getenv("KEY_ALIAS")
-                keyPassword System.getenv("KEY_PASSWORD")
+                storePassword keystorePassword
+                keyAlias keyAlias
+                keyPassword keyPassword
             }
         }
     }
