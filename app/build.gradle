@@ -32,8 +32,11 @@ android {
             def keystorePassword = System.getenv("KEYSTORE_PASSWORD")
             def keyAlias = System.getenv("KEY_ALIAS")
             def keyPassword = System.getenv("KEY_PASSWORD")
-            if (keystorePassword != null && keyAlias != null && keyPassword != null) {
-                storeFile file("autobot-release-key.keystore")
+        def keystoreFile = file("autobot-release-key.keystore")
+        
+        if (keystorePassword != null && keyAlias != null && keyPassword != null && keystoreFile.exists()) {
+            release {
+                storeFile keystoreFile
                 storePassword keystorePassword
                 keyAlias keyAlias
                 keyPassword keyPassword
@@ -45,7 +48,7 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            if (signingConfigs.release.storeFile != null) {
+            if (signingConfigs.hasProperty('release')) {
                 signingConfig signingConfigs.release
             }
         }
