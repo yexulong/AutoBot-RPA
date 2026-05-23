@@ -29,17 +29,14 @@ android {
 
     signingConfigs {
         release {
-            def keystorePassword = System.getenv("KEYSTORE_PASSWORD")
-            def keyAlias = System.getenv("KEY_ALIAS")
-            def keyPassword = System.getenv("KEY_PASSWORD")
-        def keystoreFile = file("autobot-release-key.keystore")
-        
-        if (keystorePassword != null && keyAlias != null && keyPassword != null && keystoreFile.exists()) {
-            release {
-                storeFile keystoreFile
-                storePassword keystorePassword
-                keyAlias keyAlias
-                keyPassword keyPassword
+            if (System.getenv("KEYSTORE_PASSWORD") != null && 
+                System.getenv("KEY_ALIAS") != null && 
+                System.getenv("KEY_PASSWORD") != null &&
+                file("autobot-release-key.keystore").exists()) {
+                storeFile file("autobot-release-key.keystore")
+                storePassword System.getenv("KEYSTORE_PASSWORD")
+                keyAlias System.getenv("KEY_ALIAS")
+                keyPassword System.getenv("KEY_PASSWORD")
             }
         }
     }
@@ -48,9 +45,7 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            if (signingConfigs.hasProperty('release')) {
                 signingConfig signingConfigs.release
-            }
         }
     }
 
