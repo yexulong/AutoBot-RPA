@@ -1,11 +1,17 @@
 package com.autobot.rpa.ui.screens
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.graphics.BitmapFactory
 import android.graphics.Point
 import android.net.Uri
 import android.os.Build
+import android.os.Environment
+import android.provider.OpenableColumns
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -17,6 +23,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
@@ -27,6 +34,11 @@ import com.autobot.rpa.data.model.ScriptAction
 import com.autobot.rpa.data.model.ConditionType
 import com.autobot.rpa.service.CoordinateRecorderService
 import com.autobot.rpa.ui.components.ActionItemCard
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileOutputStream
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -798,10 +810,45 @@ fun EditFindImageDialog(
     onDismiss: () -> Unit,
     onSave: (ScriptAction.FindImage) -> Unit
 ) {
+    val context = LocalContext.current
+    val screenshotsDir = context.filesDir.resolve("screenshots")
+    val scope = rememberCoroutineScope()
+    
     var templatePath by remember { mutableStateOf(action.templatePath) }
     var timeout by remember { mutableStateOf(action.timeout.toString()) }
+    var threshold by remember { mutableStateOf(action.threshold.toString()) }
     var saveResult by remember { mutableStateOf(action.saveResult) }
+    var debugMode by remember { mutableStateOf(action.debugMode) }
     var resultVarName by remember { mutableStateOf(action.resultVarName ?: "") }
+    var showScreenshotPicker by remember { mutableStateOf(false) }
+    var showSourceDialog by remember { mutableStateOf(false) }
+    var screenshotFiles by remember { mutableStateOf<List<File>>(emptyList()) }
+    
+    // 刷新截图列表函数
+    val refreshScreenshots = {
+        if (screenshotsDir.exists() && screenshotsDir.isDirectory) {
+            screenshotFiles = screenshotsDir.listFiles()?.sortedByDescending { it.lastModified() }?.toList() ?: emptyList()
+        }
+    }
+    
+    // 文件选择器
+    val pickImageLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            scope.launch {
+                copyImageToScreenshots(context, it)?.let { file ->
+                    templatePath = file.absolutePath
+                    refreshScreenshots()
+                }
+            }
+        }
+    }
+    
+    // 加载截图列表
+    LaunchedEffect(Unit) {
+        refreshScreenshots()
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -817,6 +864,30 @@ fun EditFindImageDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = { showSourceDialog = true },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("选择图片")
+                    }
+                    Button(
+                        onClick = { refreshScreenshots() },
+                        modifier = Modifier.width(IntrinsicSize.Min)
+                    ) {
+                        Icon(Icons.Default.Refresh, contentDescription = null)
+                    }
+                }
+                Text(
+                    text = "提示：选择已有的截图，或者从手机存储中导入图片",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 OutlinedTextField(
                     value = timeout,
                     onValueChange = { timeout = it },
@@ -824,6 +895,19 @@ fun EditFindImageDialog(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = threshold,
+                    onValueChange = { threshold = it },
+                    label = { Text("Threshold (0.0-1.0)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    text = "提示：值越大匹配越严格，默认 0.7",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Row(
                     verticalAlignment = Alignment.CenterVertically
@@ -833,6 +917,15 @@ fun EditFindImageDialog(
                         onCheckedChange = { saveResult = it }
                     )
                     Text("Save Result")
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(
+                        checked = debugMode,
+                        onCheckedChange = { debugMode = it }
+                    )
+                    Text("Debug Mode")
                 }
                 OutlinedTextField(
                     value = resultVarName,
@@ -847,12 +940,15 @@ fun EditFindImageDialog(
             TextButton(
                 onClick = {
                     val newTimeout = timeout.toIntOrNull() ?: action.timeout
+                    val newThreshold = threshold.toDoubleOrNull() ?: action.threshold
                     val newResultVarName = if (resultVarName.isBlank()) null else resultVarName
                     onSave(action.copy(
                         templatePath = templatePath,
                         timeout = newTimeout,
+                        threshold = newThreshold,
                         saveResult = saveResult,
-                        resultVarName = newResultVarName
+                        resultVarName = newResultVarName,
+                        debugMode = debugMode
                     ))
                 }
             ) {
@@ -862,6 +958,141 @@ fun EditFindImageDialog(
         dismissButton = {
             TextButton(onClick = onDismiss) {
                 Text("Cancel")
+            }
+        }
+    )
+    
+    // 选择来源对话框
+    if (showSourceDialog) {
+        AlertDialog(
+            onDismissRequest = { showSourceDialog = false },
+            title = { Text("选择图片来源") },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Button(
+                        onClick = {
+                            showSourceDialog = false
+                            showScreenshotPicker = true
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.PhotoLibrary, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("从截图中选择")
+                    }
+                    Button(
+                        onClick = {
+                            showSourceDialog = false
+                            pickImageLauncher.launch("image/*")
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("从手机存储选择")
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSourceDialog = false }) {
+                    Text("取消")
+                }
+            },
+            confirmButton = {}
+        )
+    }
+    
+    // 截图选择对话框
+    if (showScreenshotPicker) {
+        ScreenshotPickerDialog(
+            screenshotFiles = screenshotFiles,
+            onDismiss = { showScreenshotPicker = false },
+            onScreenshotSelected = { file ->
+                templatePath = file.absolutePath
+                showScreenshotPicker = false
+            }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ScreenshotPickerDialog(
+    screenshotFiles: List<java.io.File>,
+    onDismiss: () -> Unit,
+    onScreenshotSelected: (java.io.File) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("选择模板图片") },
+        text = {
+            if (screenshotFiles.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("暂无截图，请先使用 Screenshot 动作截图")
+                }
+            } else {
+                androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
+                    columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(3),
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    items(
+                        count = screenshotFiles.size,
+                        key = { screenshotFiles[it].absolutePath }
+                    ) { index ->
+                        val file = screenshotFiles[index]
+                        val bitmap = remember(file) {
+                            try {
+                                android.graphics.BitmapFactory.decodeFile(file.absolutePath)
+                            } catch (e: Exception) {
+                                null
+                            }
+                        }
+                        
+                        Card(
+                            modifier = Modifier
+                                .aspectRatio(1f)
+                                .clickable { onScreenshotSelected(file) },
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
+                        ) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (bitmap != null) {
+                                    androidx.compose.foundation.Image(
+                                        bitmap = bitmap.asImageBitmap(),
+                                        contentDescription = file.name,
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Default.BrokenImage,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("取消")
             }
         }
     )
@@ -949,11 +1180,44 @@ fun EditConditionDialog(
     onDismiss: () -> Unit,
     onSave: (ScriptAction.Condition) -> Unit
 ) {
+    val context = LocalContext.current
+    val screenshotsDir = context.filesDir.resolve("screenshots")
+    val scope = rememberCoroutineScope()
+    
     var expanded by remember { mutableStateOf(false) }
     var selectedType by remember { mutableStateOf(action.type) }
     var param1 by remember { mutableStateOf(action.param1) }
     var param2 by remember { mutableStateOf(action.param2) }
     var param3 by remember { mutableStateOf(action.param3) }
+    var showScreenshotPicker by remember { mutableStateOf(false) }
+    var showSourceDialog by remember { mutableStateOf(false) }
+    var screenshotFiles by remember { mutableStateOf<List<File>>(emptyList()) }
+    
+    // 刷新截图列表函数
+    val refreshScreenshots = {
+        if (screenshotsDir.exists() && screenshotsDir.isDirectory) {
+            screenshotFiles = screenshotsDir.listFiles()?.sortedByDescending { it.lastModified() }?.toList() ?: emptyList()
+        }
+    }
+    
+    // 文件选择器
+    val pickImageLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            scope.launch {
+                copyImageToScreenshots(context, it)?.let { file ->
+                    param1 = file.absolutePath
+                    refreshScreenshots()
+                }
+            }
+        }
+    }
+    
+    // 加载截图列表
+    LaunchedEffect(Unit) {
+        refreshScreenshots()
+    }
 
     val conditionTypes = listOf(
         ConditionType.IMAGE_FOUND,
@@ -963,6 +1227,8 @@ fun EditConditionDialog(
         ConditionType.ALWAYS_TRUE,
         ConditionType.ALWAYS_FALSE
     )
+    
+    val isImageCondition = selectedType == ConditionType.IMAGE_FOUND || selectedType == ConditionType.IMAGE_NOT_FOUND
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1002,27 +1268,67 @@ fun EditConditionDialog(
                         }
                     }
                 }
-                OutlinedTextField(
-                    value = param1,
-                    onValueChange = { param1 = it },
-                    label = { Text("Parameter 1") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                
+                if (isImageCondition) {
+                    OutlinedTextField(
+                        value = param1,
+                        onValueChange = { param1 = it },
+                        label = { Text("Template Path (Parameter 1)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = { showSourceDialog = true },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("选择图片")
+                        }
+                        Button(
+                            onClick = { refreshScreenshots() },
+                            modifier = Modifier.width(IntrinsicSize.Min)
+                        ) {
+                            Icon(Icons.Default.Refresh, contentDescription = null)
+                        }
+                    }
+                    Text(
+                        text = "Parameter 2：相似度阈值 (默认 0.8)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    OutlinedTextField(
+                        value = param1,
+                        onValueChange = { param1 = it },
+                        label = { Text("Parameter 1") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                
                 OutlinedTextField(
                     value = param2,
                     onValueChange = { param2 = it },
-                    label = { Text("Parameter 2") },
+                    label = { 
+                        Text(if (isImageCondition) "Similarity Threshold (0.0-1.0)" else "Parameter 2") 
+                    },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
-                OutlinedTextField(
-                    value = param3,
-                    onValueChange = { param3 = it },
-                    label = { Text("Parameter 3") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                if (!isImageCondition) {
+                    OutlinedTextField(
+                        value = param3,
+                        onValueChange = { param3 = it },
+                        label = { Text("Parameter 3") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
         },
         confirmButton = {
@@ -1040,6 +1346,61 @@ fun EditConditionDialog(
             }
         }
     )
+    
+    // 选择来源对话框
+    if (showSourceDialog) {
+        AlertDialog(
+            onDismissRequest = { showSourceDialog = false },
+            title = { Text("选择图片来源") },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Button(
+                        onClick = {
+                            showSourceDialog = false
+                            showScreenshotPicker = true
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.PhotoLibrary, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("从截图中选择")
+                    }
+                    Button(
+                        onClick = {
+                            showSourceDialog = false
+                            pickImageLauncher.launch("image/*")
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("从手机存储选择")
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSourceDialog = false }) {
+                    Text("取消")
+                }
+            },
+            confirmButton = {}
+        )
+    }
+    
+    // 截图选择对话框
+    if (showScreenshotPicker) {
+        ScreenshotPickerDialog(
+            screenshotFiles = screenshotFiles,
+            onDismiss = { showScreenshotPicker = false },
+            onScreenshotSelected = { file ->
+                param1 = file.absolutePath
+                showScreenshotPicker = false
+            }
+        )
+    }
 }
 
 @Composable
@@ -1120,7 +1481,13 @@ fun AddActionDialog(
                                 "Key Press" -> ScriptAction.KeyPress(id = java.util.UUID.randomUUID().toString(), order = 0, keyCode = 4)
                                 "Delay" -> ScriptAction.Delay(id = java.util.UUID.randomUUID().toString(), order = 0, milliseconds = 1000)
                                 "Screenshot" -> ScriptAction.Screenshot(id = java.util.UUID.randomUUID().toString(), order = 0, fileName = "")
-                                "Find Image" -> ScriptAction.FindImage(id = java.util.UUID.randomUUID().toString(), order = 0, templatePath = "", timeout = 5000)
+                                "Find Image" -> ScriptAction.FindImage(
+                                    id = java.util.UUID.randomUUID().toString(),
+                                    order = 0,
+                                    templatePath = "",
+                                    timeout = 5000,
+                                    threshold = 0.7
+                                )
                                 "Loop Start" -> ScriptAction.LoopStart(id = java.util.UUID.randomUUID().toString(), order = 0, times = 3)
                                 "Loop End" -> ScriptAction.LoopEnd(id = java.util.UUID.randomUUID().toString(), order = 0)
                                 "Condition" -> ScriptAction.Condition(id = java.util.UUID.randomUUID().toString(), order = 0, type = com.autobot.rpa.data.model.ConditionType.IMAGE_FOUND)
@@ -1191,4 +1558,54 @@ private fun startCoordinateRecording(
     }
     CoordinateRecorderService.setOnCoordinateRecordedListener(listener)
     CoordinateRecorderService.startService(context, maxPoints)
+}
+
+// 辅助函数：从Uri复制图片到screenshots目录
+private suspend fun copyImageToScreenshots(context: Context, uri: Uri): File? = withContext(Dispatchers.IO) {
+    try {
+        val inputStream = context.contentResolver.openInputStream(uri) ?: return@withContext null
+        val screenshotsDir = File(context.filesDir, "screenshots").apply {
+            if (!exists()) mkdirs()
+        }
+        
+        // 获取文件名
+        val fileName = getFileName(context, uri) ?: "image_${System.currentTimeMillis()}.png"
+        
+        val destinationFile = File(screenshotsDir, fileName)
+        
+        // 复制文件
+        FileOutputStream(destinationFile).use { output ->
+            inputStream.copyTo(output)
+        }
+        
+        inputStream.close()
+        destinationFile
+    } catch (e: Exception) {
+        e.printStackTrace()
+        null
+    }
+}
+
+// 从Uri获取文件名
+private fun getFileName(context: Context, uri: Uri): String? {
+    var result: String? = null
+    if (uri.scheme == "content") {
+        val cursor = context.contentResolver.query(uri, null, null, null, null)
+        cursor?.use {
+            if (it.moveToFirst()) {
+                val nameIndex = it.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (nameIndex >= 0) {
+                    result = it.getString(nameIndex)
+                }
+            }
+        }
+    }
+    if (result == null) {
+        result = uri.path
+        val cut = result?.lastIndexOf('/')
+        if (cut != -1) {
+            result = result?.substring(cut!! + 1)
+        }
+    }
+    return result
 }

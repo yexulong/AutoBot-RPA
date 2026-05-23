@@ -3,11 +3,13 @@ package com.autobot.rpa.service
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.os.Build
 import android.util.Log
 import android.view.KeyEvent
 import android.view.inputmethod.InputMethodManager
+import com.autobot.rpa.data.model.ConditionType
 import com.autobot.rpa.data.model.Script
 import com.autobot.rpa.data.model.ScriptAction
 import com.autobot.rpa.data.repository.ScriptRepository
@@ -37,6 +39,8 @@ class AutomationEngine @Inject constructor(
 
     private val _currentActionIndex = MutableStateFlow(-1)
     val currentActionIndex: StateFlow<Int> = _currentActionIndex
+
+    private val variableStore = mutableMapOf<String, Any>()
 
     sealed class ExecutionState {
         object Idle : ExecutionState()
@@ -95,6 +99,9 @@ class AutomationEngine @Inject constructor(
                 RunMode.EXECUTE -> "EXECUTION"
             }
             FloatingWindowService.startServiceWithName(context, floatingModeName, script.name)
+
+            // 等待悬浮窗显示
+            delay(500)
 
             try {
                 scriptRepository.incrementRunCount(script.id)
@@ -182,6 +189,9 @@ class AutomationEngine @Inject constructor(
             val stepInfo = "Step ${index + 1}/${actions.size}: $actionName"
             FloatingWindowService.updateStep(stepInfo)
             
+            // 给用户一点时间看到步骤变化
+            delay(300)
+            
             log("Executing: ${action::class.simpleName}", LogType.INFO)
             executeAction(action)
 
@@ -251,7 +261,7 @@ class AutomationEngine @Inject constructor(
             }
 
             is ScriptAction.FindImage -> {
-                findImage(action.templatePath, action.timeout)
+                findImage(action)
             }
 
             is ScriptAction.LoopStart -> {
@@ -264,6 +274,15 @@ class AutomationEngine @Inject constructor(
 
             is ScriptAction.Condition -> {
                 log("Condition check: ${action.type}", LogType.INFO)
+                val conditionMet = checkCondition(action)
+                val branchToExecute = if (conditionMet) {
+                    log("Condition met, executing true branch", LogType.INFO)
+                    action.trueBranch
+                } else {
+                    log("Condition not met, executing false branch", LogType.INFO)
+                    action.falseBranch
+                }
+                executeActions(branchToExecute)
             }
 
             is ScriptAction.Comment -> {
@@ -372,10 +391,284 @@ class AutomationEngine @Inject constructor(
         }
     }
 
-    private suspend fun findImage(templatePath: String, timeout: Int) {
-        log("Finding image: $templatePath", LogType.INFO)
-        delay(timeout.toLong())
-        log("Image not found", LogType.WARNING)
+    private suspend fun findImage(action: ScriptAction.FindImage) {
+        log("===== Starting Find Image ======", LogType.INFO)
+        log("Template path: ${action.templatePath}", LogType.INFO)
+        log("Threshold: ${action.threshold}", LogType.INFO)
+        log("Timeout: ${action.timeout}ms", LogType.INFO)
+        log("Debug mode: ${action.debugMode}", LogType.INFO)
+
+        val templateFile = File(action.templatePath)
+        if (!templateFile.exists()) {
+            log("❌ Template image not found: ${action.templatePath}", LogType.ERROR)
+            return
+        }
+        log("✅ Template file exists, size: ${templateFile.length()} bytes", LogType.INFO)
+
+        val templateBitmap = BitmapFactory.decodeFile(action.templatePath)
+        if (templateBitmap == null) {
+            log("❌ Failed to load template image - bitmap is null", LogType.ERROR)
+            return
+        }
+        log("✅ Template image loaded: ${templateBitmap.width}x${templateBitmap.height}", LogType.INFO)
+
+        val screenshotManager = ScreenshotManager.getInstance(context)
+        val imageMatchingService = ImageMatchingService.getInstance()
+        val currentState = screenshotManager.permissionState.value
+
+        if (currentState != ScreenshotManager.PermissionState.Granted) {
+            log("❌ Screen capture permission not granted. Please grant permission first.", LogType.ERROR)
+            return
+        }
+        log("✅ Screen capture permission granted", LogType.INFO)
+
+        val startTime = System.currentTimeMillis()
+        val retryInterval = 500L
+        var attemptCount = 0
+        var lastScreenBitmap: Bitmap? = null
+        var lastMatchResult: MatchResult? = null
+
+        while (System.currentTimeMillis() - startTime < action.timeout) {
+            if (executionJob?.isActive != true) {
+                log("Execution stopped", LogType.WARNING)
+                break
+            }
+
+            attemptCount++
+            val elapsed = System.currentTimeMillis() - startTime
+            log("🔍 Attempt $attemptCount (elapsed: ${elapsed}ms/$action.timeout)...", LogType.INFO)
+
+            try {
+                val screenBitmap = takeScreenshotToBitmap()
+                if (screenBitmap != null) {
+                    lastScreenBitmap = screenBitmap
+                    log("📸 Screenshot taken: ${screenBitmap.width}x${screenBitmap.height}", LogType.INFO)
+                    
+                    val matchResult = imageMatchingService.findMatch(
+                        screenBitmap,
+                        templateBitmap,
+                        action.threshold
+                    )
+                    lastMatchResult = matchResult
+
+                    // 判断是否达到阈值
+                    val isMatchFound = matchResult != null && matchResult.similarity >= action.threshold
+
+                    if (isMatchFound) {
+                        log("✅ Image found at (${matchResult.x}, ${matchResult.y}) with similarity ${String.format("%.2f", matchResult.similarity)}", LogType.SUCCESS)
+                        
+                        if (action.debugMode) {
+                            saveDebugScreenshot(screenBitmap, matchResult, templateBitmap.width, templateBitmap.height, true, attemptCount)
+                        }
+                        
+                        if (action.saveResult) {
+                            // Save result to variable store
+                            val resultMap = mapOf(
+                                "found" to true,
+                                "x" to matchResult.x,
+                                "y" to matchResult.y,
+                                "similarity" to matchResult.similarity
+                            )
+                            action.resultVarName?.let { varName ->
+                                variableStore[varName] = resultMap
+                            }
+                        }
+                        return
+                    } else {
+                        // 没找到匹配
+                        if (matchResult != null) {
+                            log("❌ No match above threshold (best: ${String.format("%.2f", matchResult.similarity)})", LogType.INFO)
+                        } else {
+                            log("❌ No match at all in this attempt", LogType.INFO)
+                        }
+                        
+                        // 如果是调试模式，每次尝试都保存截图
+                        if (action.debugMode) {
+                            saveDebugScreenshot(screenBitmap, matchResult, templateBitmap.width, templateBitmap.height, false, attemptCount)
+                        }
+                    }
+                } else {
+                    log("⚠️ Failed to take screenshot", LogType.WARNING)
+                }
+            } catch (e: Exception) {
+                log("❌ Error during image matching: ${e.message}", LogType.WARNING)
+                e.printStackTrace()
+            }
+
+            if (System.currentTimeMillis() - startTime < action.timeout) {
+                log("⏳ Waiting $retryInterval ms before next attempt...", LogType.INFO)
+                delay(retryInterval)
+            }
+        }
+
+        log("⏰ Timeout reached! Image not found after $attemptCount attempts and ${System.currentTimeMillis() - startTime}ms", LogType.WARNING)
+    }
+
+    private fun saveDebugScreenshot(
+        screenBitmap: Bitmap,
+        matchResult: MatchResult?,
+        templateWidth: Int,
+        templateHeight: Int,
+        found: Boolean,
+        attemptCount: Int
+    ) {
+        try {
+            // Create a mutable copy of the bitmap
+            val mutableBitmap = screenBitmap.copy(Bitmap.Config.ARGB_8888, true)
+            val canvas = android.graphics.Canvas(mutableBitmap)
+            val paint = android.graphics.Paint()
+            
+            if (matchResult != null) {
+                if (found) {
+                    // 找到匹配 - 红色框
+                    paint.color = android.graphics.Color.RED
+                } else {
+                    // 没找到但有最佳匹配 - 黄色框
+                    paint.color = android.graphics.Color.YELLOW
+                }
+                paint.style = android.graphics.Paint.Style.STROKE
+                paint.strokeWidth = 8f
+                
+                val left = matchResult.x - templateWidth / 2
+                val top = matchResult.y - templateHeight / 2
+                val right = matchResult.x + templateWidth / 2
+                val bottom = matchResult.y + templateHeight / 2
+                
+                canvas.drawRect(
+                    left.toFloat(),
+                    top.toFloat(),
+                    right.toFloat(),
+                    bottom.toFloat(),
+                    paint
+                )
+                
+                // Draw text with similarity
+                paint.style = android.graphics.Paint.Style.FILL
+                paint.textSize = 48f
+                val text = if (found) {
+                    "Found: ${String.format("%.2f", matchResult.similarity)}"
+                } else {
+                    "Best Match: ${String.format("%.2f", matchResult.similarity)}"
+                }
+                canvas.drawText(text, left.toFloat(), (top - 10).toFloat(), paint)
+            } else {
+                // No match found at all
+                paint.color = android.graphics.Color.YELLOW
+                paint.style = android.graphics.Paint.Style.FILL
+                paint.textSize = 64f
+                canvas.drawText("No Match Found", 50f, 100f, paint)
+            }
+            
+            // Save the bitmap
+            val sdf = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault())
+            val fileName = "Debug_FindImage_Attempt${attemptCount}_${sdf.format(java.util.Date())}"
+            
+            val screenshotManager = ScreenshotManager.getInstance(context)
+            screenshotManager.saveBitmapToFile(mutableBitmap, fileName) { result ->
+                if (result.isSuccess) {
+                    val file = result.getOrThrow()
+                    log("📸 Debug screenshot saved: ${file.absolutePath}", LogType.SUCCESS)
+                } else {
+                    log("❌ Failed to save debug screenshot", LogType.ERROR)
+                }
+            }
+            
+        } catch (e: Exception) {
+            log("❌ Error saving debug screenshot: ${e.message}", LogType.ERROR)
+            e.printStackTrace()
+        }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    private suspend fun takeScreenshotToBitmap(): Bitmap? {
+        val screenshotManager = ScreenshotManager.getInstance(context)
+        
+        val currentState = screenshotManager.permissionState.value
+        if (currentState != ScreenshotManager.PermissionState.Granted) {
+            return null
+        }
+
+        return kotlinx.coroutines.suspendCancellableCoroutine { continuation ->
+            val fileName = "Temp_${System.currentTimeMillis()}"
+            
+            screenshotManager.takeScreenshot(fileName) { result ->
+                if (result.isSuccess) {
+                    val file = result.getOrThrow()
+                    val bitmap = BitmapFactory.decodeFile(file.absolutePath)
+                    file.delete()
+                    continuation.resume(bitmap, onCancellation = null)
+                } else {
+                    continuation.resume(null, onCancellation = null)
+                }
+            }
+        }
+    }
+
+    private suspend fun checkCondition(action: ScriptAction.Condition): Boolean {
+        return when (action.type) {
+            ConditionType.IMAGE_FOUND -> {
+                checkImageFound(action.param1, action.param2.toDoubleOrNull() ?: 0.8)
+            }
+            ConditionType.IMAGE_NOT_FOUND -> {
+                !checkImageFound(action.param1, action.param2.toDoubleOrNull() ?: 0.8)
+            }
+            ConditionType.COLOR_MATCH -> {
+                false
+            }
+            ConditionType.COLOR_NOT_MATCH -> {
+                false
+            }
+            ConditionType.ALWAYS_TRUE -> {
+                true
+            }
+            ConditionType.ALWAYS_FALSE -> {
+                false
+            }
+        }
+    }
+
+    private suspend fun checkImageFound(templatePath: String, threshold: Double): Boolean {
+        log("===== Checking if image exists ======", LogType.INFO)
+        
+        val templateFile = File(templatePath)
+        if (!templateFile.exists()) {
+            log("❌ Template image not found: $templatePath", LogType.ERROR)
+            return false
+        }
+
+        val templateBitmap = BitmapFactory.decodeFile(templatePath)
+        if (templateBitmap == null) {
+            log("❌ Failed to load template image", LogType.ERROR)
+            return false
+        }
+
+        val screenshotManager = ScreenshotManager.getInstance(context)
+        val imageMatchingService = ImageMatchingService.getInstance()
+        val currentState = screenshotManager.permissionState.value
+
+        if (currentState != ScreenshotManager.PermissionState.Granted) {
+            log("❌ Screen capture permission not granted", LogType.ERROR)
+            return false
+        }
+
+        log("📸 Taking screenshot for image check...", LogType.INFO)
+        val screenBitmap = takeScreenshotToBitmap()
+        if (screenBitmap == null) {
+            log("❌ Failed to take screenshot for condition check", LogType.ERROR)
+            return false
+        }
+        log("✅ Screenshot taken, starting match...", LogType.INFO)
+        
+        val matchResult = imageMatchingService.findMatch(screenBitmap, templateBitmap, threshold)
+        val found = matchResult != null
+        
+        if (found) {
+            log("✅ Image FOUND at (${matchResult?.x}, ${matchResult?.y}), similarity: ${String.format("%.2f", matchResult?.similarity ?: 0.0)}", LogType.SUCCESS)
+        } else {
+            log("❌ Image NOT found", LogType.INFO)
+        }
+        
+        return found
     }
 
     private fun log(message: String, type: LogType = LogType.INFO) {

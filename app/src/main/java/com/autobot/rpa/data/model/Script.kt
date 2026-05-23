@@ -81,7 +81,12 @@ sealed class ScriptAction {
         val templatePath: String,
         val timeout: Int = 5000,
         val saveResult: Boolean = false,
-        val resultVarName: String? = null
+        val resultVarName: String? = null,
+        val matchX: Int? = null,
+        val matchY: Int? = null,
+        val found: Boolean = false,
+        val threshold: Double = 0.7,
+        val debugMode: Boolean = false
     ) : ScriptAction()
 
     data class LoopStart(
@@ -189,6 +194,11 @@ class ScriptConverters {
                 json.put("timeout", action.timeout)
                 json.put("saveResult", action.saveResult)
                 json.put("resultVarName", action.resultVarName ?: "")
+                json.put("matchX", action.matchX ?: JSONObject.NULL)
+                json.put("matchY", action.matchY ?: JSONObject.NULL)
+                json.put("found", action.found)
+                json.put("threshold", action.threshold)
+                json.put("debugMode", action.debugMode)
             }
             is ScriptAction.LoopStart -> {
                 json.put("type", "LoopStart")
@@ -227,7 +237,7 @@ class ScriptConverters {
             "KeyPress" -> ScriptAction.KeyPress(id, order, json.getInt("keyCode"))
             "Delay" -> ScriptAction.Delay(id, order, json.getInt("milliseconds"))
             "Screenshot" -> ScriptAction.Screenshot(id, order, json.optString("fileName", ""))
-            "FindImage" -> ScriptAction.FindImage(id, order, json.getString("templatePath"), json.optInt("timeout", 5000), json.optBoolean("saveResult", false), json.optString("resultVarName", ""))
+            "FindImage" -> ScriptAction.FindImage(id, order, json.getString("templatePath"), json.optInt("timeout", 5000), json.optBoolean("saveResult", false), json.optString("resultVarName", ""), if (json.isNull("matchX")) null else json.optInt("matchX"), if (json.isNull("matchY")) null else json.optInt("matchY"), json.optBoolean("found", false), json.optDouble("threshold", 0.7), json.optBoolean("debugMode", false))
             "LoopStart" -> ScriptAction.LoopStart(id, order, json.optInt("times", -1), json.optBoolean("infinite", false))
             "LoopEnd" -> ScriptAction.LoopEnd(id, order)
             "Condition" -> ScriptAction.Condition(id, order, ConditionType.valueOf(json.getString("conditionType")), json.optString("param1", ""), json.optString("param2", ""), json.optString("param3", ""))

@@ -331,6 +331,15 @@ class ScreenshotManager private constructor(private val context: Context) {
         AutoBotForegroundService.stopService(context)
     }
 
+    fun saveBitmapToFile(bitmap: Bitmap, fileName: String, callback: (Result<File>) -> Unit) {
+        try {
+            val file = saveBitmapToFile(bitmap, fileName)
+            callback(Result.success(file))
+        } catch (e: Exception) {
+            callback(Result.failure(e))
+        }
+    }
+
     fun release() {
         mediaProjection?.unregisterCallback(mediaProjectionCallback)
         cleanupEverything()
