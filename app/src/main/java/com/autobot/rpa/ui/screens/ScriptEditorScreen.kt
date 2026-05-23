@@ -1119,7 +1119,7 @@ fun AddActionDialog(
                                 "Text Input" -> ScriptAction.TextInput(id = java.util.UUID.randomUUID().toString(), order = 0, text = "Hello")
                                 "Key Press" -> ScriptAction.KeyPress(id = java.util.UUID.randomUUID().toString(), order = 0, keyCode = 4)
                                 "Delay" -> ScriptAction.Delay(id = java.util.UUID.randomUUID().toString(), order = 0, milliseconds = 1000)
-                                "Screenshot" -> ScriptAction.Screenshot(id = java.util.UUID.randomUUID().toString(), order = 0, fileName = "screenshot")
+                                "Screenshot" -> ScriptAction.Screenshot(id = java.util.UUID.randomUUID().toString(), order = 0, fileName = "")
                                 "Find Image" -> ScriptAction.FindImage(id = java.util.UUID.randomUUID().toString(), order = 0, templatePath = "", timeout = 5000)
                                 "Loop Start" -> ScriptAction.LoopStart(id = java.util.UUID.randomUUID().toString(), order = 0, times = 3)
                                 "Loop End" -> ScriptAction.LoopEnd(id = java.util.UUID.randomUUID().toString(), order = 0)

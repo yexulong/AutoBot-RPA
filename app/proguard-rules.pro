@@ -21,3 +21,17 @@
 
 # Keep Kotlin metadata
 -keep class kotlin.Metadata { *; }
+
+# Compose rules to prevent lock verification warnings
+-keep class androidx.compose.runtime.** { *; }
+-keep class androidx.compose.ui.** { *; }
+-dontwarn androidx.compose.runtime.**
+-dontwarn androidx.compose.ui.**
+
+# Keep Compose snapshot classes to avoid lock verification issues
+-keepclassmembers class androidx.compose.runtime.snapshots.SnapshotStateMap {
+    *;
+}
+-keepclassmembers class androidx.compose.runtime.snapshots.** {
+    *;
+}

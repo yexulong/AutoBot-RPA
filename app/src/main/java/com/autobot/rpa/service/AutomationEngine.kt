@@ -5,6 +5,7 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.os.Build
+import android.util.Log
 import android.view.KeyEvent
 import android.view.inputmethod.InputMethodManager
 import com.autobot.rpa.data.model.Script
@@ -82,7 +83,11 @@ class AutomationEngine @Inject constructor(
             _currentActionIndex.value = -1
 
             log("Starting script: ${script.name}")
-            AutoBotForegroundService.startService(context)
+            // 保持当前的服务类型，不要随意改变
+            // 如果服务没有运行，才启动默认类型的服务
+            if (!AutoBotForegroundService.isRunning.value) {
+                AutoBotForegroundService.startService(context)
+            }
             AutoBotForegroundService.updateNotification(script.name)
             
             val floatingModeName = when (_currentRunMode.value) {
@@ -108,7 +113,8 @@ class AutomationEngine @Inject constructor(
                 FloatingWindowService.updateStep("❌ 执行失败: $errorMessage")
             } finally {
                 delay(1000)
-                AutoBotForegroundService.stopService(context)
+                // 不要停止前台服务 - 这会导致 MediaProjection 失效
+                // AutoBotForegroundService.stopService(context)
                 // 不自动关闭悬浮窗，让用户自己关闭
             }
         }
@@ -329,9 +335,41 @@ class AutomationEngine @Inject constructor(
         }
     }
 
-    private suspend fun takeScreenshot(fileName: String) {
-        delay(200)
-        log("Screenshot saved to: $fileName", LogType.SUCCESS)
+    companion object {
+        private const val TAG = "AutomationEngine"
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    private suspend fun takeScreenshot(fileName: String? = null) {
+        val screenshotManager = ScreenshotManager.getInstance(context)
+        
+        val currentState = screenshotManager.permissionState.value
+        if (currentState != ScreenshotManager.PermissionState.Granted) {
+            log("Screen capture permission not granted. Please grant permission first.", LogType.ERROR)
+            return
+        }
+
+        // 使用 Kotlin 协程和 suspendCancellableCoroutine 来处理回调
+        kotlinx.coroutines.suspendCancellableCoroutine { continuation ->
+            val actualFileName = if (fileName.isNullOrBlank()) {
+                val sdf = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault())
+                "Screenshot_${sdf.format(java.util.Date())}"
+            } else {
+                fileName
+            }
+            
+            screenshotManager.takeScreenshot(actualFileName) { result ->
+                if (result.isSuccess) {
+                    val file = result.getOrThrow()
+                    log("Screenshot saved to: ${file.absolutePath}", LogType.SUCCESS)
+                    continuation.resume(Unit, onCancellation = null)
+                } else {
+                    val error = result.exceptionOrNull() ?: Exception("Unknown error")
+                    log("Failed to take screenshot: ${error.message}", LogType.ERROR)
+                    continuation.resume(Unit, onCancellation = null)
+                }
+            }
+        }
     }
 
     private suspend fun findImage(templatePath: String, timeout: Int) {
@@ -341,6 +379,15 @@ class AutomationEngine @Inject constructor(
     }
 
     private fun log(message: String, type: LogType = LogType.INFO) {
+        // 输出到 logcat
+        when (type) {
+            LogType.INFO -> Log.i(TAG, message)
+            LogType.SUCCESS -> Log.d(TAG, "[SUCCESS] $message")
+            LogType.WARNING -> Log.w(TAG, message)
+            LogType.ERROR -> Log.e(TAG, message)
+        }
+        
+        // 输出到内部状态
         val currentLogs = _logs.value.toMutableList()
         currentLogs.add(ExecutionLog(message = message, type = type))
         if (currentLogs.size > 100) {

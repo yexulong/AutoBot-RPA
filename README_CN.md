@@ -26,7 +26,9 @@ AutoBotRPA/
 │   │   │   ├── service/
 │   │   │   │   ├── AutoBotAccessibilityService.kt  # 用于手势的无障碍服务
 │   │   │   │   ├── AutoBotForegroundService.kt      # 前台服务
-│   │   │   │   └── AutomationEngine.kt               # 核心自动化引擎
+│   │   │   │   ├── AutomationEngine.kt               # 核心自动化引擎
+│   │   │   │   ├── ScreenshotManager.kt              # 截图捕获和管理
+│   │   │   │   ├── CoordinateRecorderService.kt      # 坐标记录服务
 │   │   │   └── ui/
 │   │   │       ├── AutoBotApp.kt             # 主应用导航
 │   │   │       ├── theme/                    # Material 3 主题
@@ -62,8 +64,9 @@ AutoBotRPA/
 - **按键**：模拟物理按键
 - **延时**：等待指定时长
 
-### 2. 图像识别（存根）
-- **截图**：捕获当前屏幕
+### 2. 图像识别
+- **截图**：完整实现的屏幕捕获功能
+- **截图管理**：在设置中查看、分享和删除已捕获的截图
 - **查找图片**：模板匹配（基础实现）
 
 ### 3. 流程控制
@@ -140,6 +143,7 @@ app\build\outputs\apk\debug\app-debug.apk
 - `FOREGROUND_SERVICE` - 用于在后台运行自动化
 - `POST_NOTIFICATIONS` - 用于自动化运行时的通知
 - `SYSTEM_ALERT_WINDOW` - 用于悬浮窗功能
+- 屏幕捕获权限 - 用于捕获截图（通过运行时请求授予）
 
 ## 使用说明
 
@@ -147,7 +151,7 @@ app\build\outputs\apk\debug\app-debug.apk
 
 1. 在 Android 设备上安装 APK
 2. 按提示授予无障碍服务权限
-3. 在设置中授予其他必要权限
+3. 在设置中授予其他必要权限（包括屏幕捕获权限）
 
 ### 2. 创建脚本
 
@@ -165,7 +169,15 @@ app\build\outputs\apk\debug\app-debug.apk
 4. 使用"暂停"暂停，"停止"停止
 5. 在日志面板查看日志
 
-### 4. 示例脚本流程
+### 4. 管理截图
+
+1. 转到设置 > 查看截图
+2. 在网格视图中查看所有已捕获的截图
+3. 点击截图可查看全屏显示
+4. 使用分享按钮分享截图
+5. 使用删除按钮移除不需要的截图
+
+### 5. 示例脚本流程
 
 ```
 1. 延时：2000ms（等待应用加载）
@@ -207,7 +219,7 @@ app\build\outputs\apk\debug\app-debug.apk
 - [ ] **循环逻辑实现** - 在 `AutomationEngine.executeActions()` 中实现实际的循环执行，包括循环开始/结束检测
 - [ ] **条件分支实现** - 添加实际的条件评估和真/假分支执行
 - [ ] **条件序列化** - 修复 `ScriptConverters` 以正确序列化/反序列化 `Condition` 动作中的 `trueBranch` 和 `falseBranch`
-- [ ] **截图功能** - 在 `takeScreenshot()` 中实现实际的屏幕捕获和文件保存
+- [x] **截图功能** - 在 `takeScreenshot()` 中实现实际的屏幕捕获和文件保存
 - [ ] **图像识别（查找图片）** - 使用 OpenCV 或其他图像识别库实现模板匹配
 - [ ] **文本输入修复** - 使用 AccessibilityService 或 InputMethodManager 实现向聚焦字段的实际文本输入
 - [ ] **颜色匹配** - 实现 `COLOR_MATCH`/`COLOR_NOT_MATCH` 条件的颜色检测和比较逻辑
@@ -231,7 +243,7 @@ app\build\outputs\apk\debug\app-debug.apk
 
 ## 已知限制
 
-1. **图像识别**：目前只是占位符，没有实际实现
+1. **查找图片功能**：目前只是占位符，没有实际实现
 2. **循环与条件**：只存在 UI 存根，没有执行逻辑
 3. **无障碍服务**：需要明确的用户权限
 4. **后台执行**：需要前台服务通知

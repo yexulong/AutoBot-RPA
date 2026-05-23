@@ -27,6 +27,9 @@ class AutoBotForegroundService : Service() {
     companion object {
         const val CHANNEL_ID = "autobot_automation_channel"
         const val NOTIFICATION_ID = 1
+        const val EXTRA_SERVICE_TYPE = "service_type"
+        const val SERVICE_TYPE_AUTOMATION = 0
+        const val SERVICE_TYPE_MEDIA_PROJECTION = 1
 
         private val _isRunning = MutableStateFlow(false)
         val isRunning: StateFlow<Boolean> = _isRunning
@@ -36,8 +39,10 @@ class AutoBotForegroundService : Service() {
 
         private var instance: AutoBotForegroundService? = null
 
-        fun startService(context: Context) {
-            val intent = Intent(context, AutoBotForegroundService::class.java)
+        fun startService(context: Context, serviceType: Int = SERVICE_TYPE_AUTOMATION) {
+            val intent = Intent(context, AutoBotForegroundService::class.java).apply {
+                putExtra(EXTRA_SERVICE_TYPE, serviceType)
+            }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
             } else {
@@ -55,6 +60,8 @@ class AutoBotForegroundService : Service() {
         }
     }
 
+    private var currentServiceType = SERVICE_TYPE_AUTOMATION
+
     inner class LocalBinder : Binder() {
         fun getService(): AutoBotForegroundService = this@AutoBotForegroundService
     }
@@ -63,6 +70,8 @@ class AutoBotForegroundService : Service() {
         super.onCreate()
         instance = this
         createNotificationChannel()
+        // Start foreground immediately when service is created to prevent timeout
+        startForeground()
     }
 
     override fun onDestroy() {
@@ -74,7 +83,14 @@ class AutoBotForegroundService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startForeground()
+        val newServiceType = intent?.getIntExtra(EXTRA_SERVICE_TYPE, SERVICE_TYPE_AUTOMATION) ?: SERVICE_TYPE_AUTOMATION
+        
+        // If service type changed, update and restart foreground
+        if (newServiceType != currentServiceType) {
+            currentServiceType = newServiceType
+            startForeground()
+        }
+        
         _isRunning.value = true
         return START_STICKY
     }
@@ -100,7 +116,12 @@ class AutoBotForegroundService : Service() {
     private fun startForeground() {
         val notification = createNotification()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+            val serviceType = when (currentServiceType) {
+                SERVICE_TYPE_MEDIA_PROJECTION -> ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
+                SERVICE_TYPE_AUTOMATION -> ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                else -> ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+            }
+            startForeground(NOTIFICATION_ID, notification, serviceType)
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
@@ -114,9 +135,21 @@ class AutoBotForegroundService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
+        val title = if (currentServiceType == SERVICE_TYPE_MEDIA_PROJECTION) {
+            "Screen capture active"
+        } else {
+            getString(R.string.automation_running)
+        }
+
+        val text = if (currentServiceType == SERVICE_TYPE_MEDIA_PROJECTION) {
+            "AutoBot is capturing your screen"
+        } else {
+            _currentScriptName.value.ifEmpty { "AutoBot RPA" }
+        }
+
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle(getString(R.string.automation_running))
-            .setContentText(_currentScriptName.value.ifEmpty { "AutoBot RPA" })
+            .setContentTitle(title)
+            .setContentText(text)
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setContentIntent(pendingIntent)
             .setOngoing(true)

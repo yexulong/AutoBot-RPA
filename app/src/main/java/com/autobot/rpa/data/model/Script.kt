@@ -72,7 +72,7 @@ sealed class ScriptAction {
     data class Screenshot(
         override val id: String = java.util.UUID.randomUUID().toString(),
         override val order: Int = 0,
-        val fileName: String
+        val fileName: String = ""
     ) : ScriptAction()
 
     data class FindImage(
@@ -226,7 +226,7 @@ class ScriptConverters {
             "TextInput" -> ScriptAction.TextInput(id, order, json.getString("text"))
             "KeyPress" -> ScriptAction.KeyPress(id, order, json.getInt("keyCode"))
             "Delay" -> ScriptAction.Delay(id, order, json.getInt("milliseconds"))
-            "Screenshot" -> ScriptAction.Screenshot(id, order, json.getString("fileName"))
+            "Screenshot" -> ScriptAction.Screenshot(id, order, json.optString("fileName", ""))
             "FindImage" -> ScriptAction.FindImage(id, order, json.getString("templatePath"), json.optInt("timeout", 5000), json.optBoolean("saveResult", false), json.optString("resultVarName", ""))
             "LoopStart" -> ScriptAction.LoopStart(id, order, json.optInt("times", -1), json.optBoolean("infinite", false))
             "LoopEnd" -> ScriptAction.LoopEnd(id, order)

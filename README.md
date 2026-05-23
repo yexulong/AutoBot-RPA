@@ -61,8 +61,9 @@ AutoBotRPA/
 - **Key Press**: Simulate physical buttons
 - **Delay**: Wait for specified duration
 
-### 2. Image Recognition (Stubs)
-- **Screenshot**: Capture current screen
+### 2. Image Recognition
+- **Screenshot**: Capture current screen with full implementation
+- **Screenshot Management**: View, share, and delete captured screenshots in Settings
 - **Find Image**: Template matching (basic implementation)
 
 ### 3. Flow Control
@@ -147,7 +148,7 @@ The app requires the following permissions:
 
 1. Install the APK on your Android device
 2. Grant Accessibility Service permission when prompted
-3. Grant other required permissions in Settings
+3. Grant other required permissions in Settings (including Screen Capture permission)
 
 ### 2. Creating a Script
 
