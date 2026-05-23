@@ -6,7 +6,7 @@ AutoBot RPA is a complete Android automation application similar to "AnJian Jing
 
 ## Project Structure
 
-```
+````
 AutoBotRPA/
 ├── app/
 │   ├── src/main/
@@ -122,10 +122,12 @@ gradle assembleDebug
 
 # Clean and rebuild
 ./gradlew clean assembleDebug
-```
+````
 
 ### Build Output
+
 The APK will be generated at:
+
 ```
 app/build/outputs/apk/debug/app-debug.apk
 ```
@@ -133,6 +135,7 @@ app/build/outputs/apk/debug/app-debug.apk
 ## Application Permissions
 
 The app requires the following permissions:
+
 - `BIND_ACCESSIBILITY_SERVICE` - For automating touches and gestures
 - `FOREGROUND_SERVICE` - For running automation in background
 - `POST_NOTIFICATIONS` - For notification when automation is running
@@ -141,11 +144,13 @@ The app requires the following permissions:
 ## Usage Instructions
 
 ### 1. First Launch
+
 1. Install the APK on your Android device
 2. Grant Accessibility Service permission when prompted
 3. Grant other required permissions in Settings
 
 ### 2. Creating a Script
+
 1. Tap the "+" button on the Scripts screen
 2. Enter a name for your script
 3. Tap "Add Action" to add actions
@@ -153,6 +158,7 @@ The app requires the following permissions:
 5. Save the script
 
 ### 3. Running a Script
+
 1. Go to the Execute tab
 2. Select your script
 3. Tap "Run" to start execution
@@ -160,6 +166,7 @@ The app requires the following permissions:
 5. View logs in the log panel
 
 ### 4. Example Script Flow
+
 ```
 1. Delay: 2000ms (Wait for app to load)
 2. Tap: (500, 500) (Tap button)
@@ -176,25 +183,58 @@ The app requires the following permissions:
 ## Architecture Details
 
 ### MVVM Pattern
+
 - **Model**: Script data class with actions list
 - **View**: Jetpack Compose screens
 - **ViewModel**: State management with StateFlow
 
 ### Clean Architecture Layers
+
 1. **UI Layer**: Compose screens and components
 2. **Domain Layer**: Business logic (AutomationEngine)
 3. **Data Layer**: Room database and repositories
 
 ### State Management
+
 - ViewModels with `StateFlow` for reactive UI
 - Sealed classes for execution states
 - Immutable data models
 
+## TODO List - Unimplemented Features
+
+### High Priority - Core Automation Features
+
+- [ ] **Loop Logic Implementation** - Implement actual loop execution in `AutomationEngine.executeActions()` with loop start/end detection
+- [ ] **Condition Branch Implementation** - Add actual condition evaluation and true/false branch execution
+- [ ] **Condition Serialization** - Fix `ScriptConverters` to properly serialize/deserialize `trueBranch` and `falseBranch` in `Condition` action
+- [ ] **Screenshot Feature** - Implement actual screen capture and file saving in `takeScreenshot()`
+- [ ] **Image Recognition (FindImage)** - Implement template matching using OpenCV or other image recognition library
+- [ ] **Text Input Fix** - Implement actual text input into focused fields using AccessibilityService or InputMethodManager
+- [ ] **Color Matching** - Implement color detection and comparison logic for `COLOR_MATCH`/`COLOR_NOT_MATCH` conditions
+
+### Medium Priority - Additional Features
+
+- [ ] **Script Import/Export** - Add ability to backup and restore scripts (JSON format recommended)
+- [ ] **Script Grouping** - Add grouping/categorization feature for organizing scripts
+- [ ] **Double Tap Action** - Add `DoubleTap` action type to `ScriptAction` and implement in engine
+- [ ] **Script Execution Pause/Resume** - Verify and test pause/resume functionality
+- [ ] **Coordinate Recorder** - Test and ensure coordinate recording from screen works correctly
+
+### Low Priority - Enhancements
+
+- [ ] **Variable System** - Add support for storing and using variables in scripts
+- [ ] **OCR Text Recognition** - Add ability to recognize text on screen
+- [ ] **Cloud Sharing** - Add script sharing functionality
+- [ ] **Action Recording Mode** - Add ability to record user actions as script steps
+
+***
+
 ## Known Limitations
 
-1. **Image Recognition**: Basic template matching implemented, may need OpenCV for advanced features
-2. **Accessibility Service**: Requires explicit user permission
-3. **Background Execution**: Requires foreground service notification
+1. **Image Recognition**: Currently only a placeholder, no actual implementation
+2. **Loop & Condition**: Only UI stubs exist, no execution logic
+3. **Accessibility Service**: Requires explicit user permission
+4. **Background Execution**: Requires foreground service notification
 
 ## Future Enhancements
 
@@ -209,20 +249,23 @@ The app requires the following permissions:
 ## Troubleshooting
 
 ### Accessibility Service Not Working
+
 1. Go to Settings > Accessibility
 2. Find AutoBot RPA
 3. Enable the service
 4. Grant all permissions
 
 ### Script Not Executing
+
 1. Check if accessibility service is enabled
 2. Ensure foreground service notification is shown
 3. Check logs for errors
 4. Verify all actions have valid parameters
 
 ### Build Issues
+
 1. Ensure Java 17/21 is installed
-2. Verify ANDROID_HOME is set
+2. Verify ANDROID\_HOME is set
 3. Check network connectivity to Google Maven
 4. Clean Gradle cache: `./gradlew clean`
 
