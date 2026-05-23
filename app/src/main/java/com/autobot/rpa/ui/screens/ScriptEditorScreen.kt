@@ -320,8 +320,9 @@ fun EditTapDialog(
     onSave: (ScriptAction.Tap) -> Unit
 ) {
     val context = LocalContext.current
-    var x by remember { mutableStateOf(action.x.toString()) }
-    var y by remember { mutableStateOf(action.y.toString()) }
+    // 优先用字符串字段，没有的话用 Int 转成字符串
+    var x by remember { mutableStateOf(action.xStr ?: action.x.toString()) }
+    var y by remember { mutableStateOf(action.yStr ?: action.y.toString()) }
     var duration by remember { mutableStateOf(action.duration.toString()) }
     var showPermissionDialog by remember { mutableStateOf(false) }
 
@@ -359,16 +360,16 @@ fun EditTapDialog(
                 OutlinedTextField(
                     value = x,
                     onValueChange = { x = it },
-                    label = { Text("X Coordinate") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    label = { Text("X Coordinate (数字或变量名如: var.x)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
                     value = y,
                     onValueChange = { y = it },
-                    label = { Text("Y Coordinate") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    label = { Text("Y Coordinate (数字或变量名如: var.y)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -379,6 +380,11 @@ fun EditTapDialog(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    text = "提示：可直接输入坐标数字，也可使用变量引用（例如: img.x 或 ${'$'}{img.y}）",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Button(
                     onClick = {
@@ -409,10 +415,14 @@ fun EditTapDialog(
         confirmButton = {
             TextButton(
                 onClick = {
+                    // 尝试解析数字，失败则保存为字符串字段
                     val newX = x.toIntOrNull() ?: action.x
                     val newY = y.toIntOrNull() ?: action.y
+                    // 如果输入的不是数字，或者原本是字符串，就保留字符串
+                    val newXStr = if (x.toIntOrNull() == null || action.xStr != null) x else null
+                    val newYStr = if (y.toIntOrNull() == null || action.yStr != null) y else null
                     val newDuration = duration.toIntOrNull() ?: action.duration
-                    onSave(action.copy(x = newX, y = newY, duration = newDuration))
+                    onSave(action.copy(x = newX, y = newY, xStr = newXStr, yStr = newYStr, duration = newDuration))
                 }
             ) {
                 Text("Save")
@@ -433,10 +443,10 @@ fun EditSwipeDialog(
     onSave: (ScriptAction.Swipe) -> Unit
 ) {
     val context = LocalContext.current
-    var startX by remember { mutableStateOf(action.startX.toString()) }
-    var startY by remember { mutableStateOf(action.startY.toString()) }
-    var endX by remember { mutableStateOf(action.endX.toString()) }
-    var endY by remember { mutableStateOf(action.endY.toString()) }
+    var startX by remember { mutableStateOf(action.startXStr ?: action.startX.toString()) }
+    var startY by remember { mutableStateOf(action.startYStr ?: action.startY.toString()) }
+    var endX by remember { mutableStateOf(action.endXStr ?: action.endX.toString()) }
+    var endY by remember { mutableStateOf(action.endYStr ?: action.endY.toString()) }
     var duration by remember { mutableStateOf(action.duration.toString()) }
     var showPermissionDialog by remember { mutableStateOf(false) }
 
@@ -474,32 +484,32 @@ fun EditSwipeDialog(
                 OutlinedTextField(
                     value = startX,
                     onValueChange = { startX = it },
-                    label = { Text("Start X") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    label = { Text("Start X (数字或变量名)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
                     value = startY,
                     onValueChange = { startY = it },
-                    label = { Text("Start Y") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    label = { Text("Start Y (数字或变量名)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
                     value = endX,
                     onValueChange = { endX = it },
-                    label = { Text("End X") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    label = { Text("End X (数字或变量名)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
                     value = endY,
                     onValueChange = { endY = it },
-                    label = { Text("End Y") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    label = { Text("End Y (数字或变量名)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -510,6 +520,11 @@ fun EditSwipeDialog(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    text = "提示：可直接输入坐标数字，也可使用变量引用",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Button(
                     onClick = {
@@ -546,8 +561,18 @@ fun EditSwipeDialog(
                     val newStartY = startY.toIntOrNull() ?: action.startY
                     val newEndX = endX.toIntOrNull() ?: action.endX
                     val newEndY = endY.toIntOrNull() ?: action.endY
+                    val newStartXStr = if (startX.toIntOrNull() == null || action.startXStr != null) startX else null
+                    val newStartYStr = if (startY.toIntOrNull() == null || action.startYStr != null) startY else null
+                    val newEndXStr = if (endX.toIntOrNull() == null || action.endXStr != null) endX else null
+                    val newEndYStr = if (endY.toIntOrNull() == null || action.endYStr != null) endY else null
                     val newDuration = duration.toIntOrNull() ?: action.duration
-                    onSave(action.copy(startX = newStartX, startY = newStartY, endX = newEndX, endY = newEndY, duration = newDuration))
+                    onSave(action.copy(
+                        startX = newStartX, startY = newStartY, 
+                        endX = newEndX, endY = newEndY,
+                        startXStr = newStartXStr, startYStr = newStartYStr,
+                        endXStr = newEndXStr, endYStr = newEndYStr,
+                        duration = newDuration
+                    ))
                 }
             ) {
                 Text("Save")
@@ -568,8 +593,8 @@ fun EditLongPressDialog(
     onSave: (ScriptAction.LongPress) -> Unit
 ) {
     val context = LocalContext.current
-    var x by remember { mutableStateOf(action.x.toString()) }
-    var y by remember { mutableStateOf(action.y.toString()) }
+    var x by remember { mutableStateOf(action.xStr ?: action.x.toString()) }
+    var y by remember { mutableStateOf(action.yStr ?: action.y.toString()) }
     var duration by remember { mutableStateOf(action.duration.toString()) }
     var showPermissionDialog by remember { mutableStateOf(false) }
 
@@ -607,16 +632,16 @@ fun EditLongPressDialog(
                 OutlinedTextField(
                     value = x,
                     onValueChange = { x = it },
-                    label = { Text("X Coordinate") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    label = { Text("X Coordinate (数字或变量名)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
                     value = y,
                     onValueChange = { y = it },
-                    label = { Text("Y Coordinate") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    label = { Text("Y Coordinate (数字或变量名)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -627,6 +652,11 @@ fun EditLongPressDialog(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    text = "提示：可直接输入坐标数字，也可使用变量引用",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Button(
                     onClick = {
@@ -659,8 +689,10 @@ fun EditLongPressDialog(
                 onClick = {
                     val newX = x.toIntOrNull() ?: action.x
                     val newY = y.toIntOrNull() ?: action.y
+                    val newXStr = if (x.toIntOrNull() == null || action.xStr != null) x else null
+                    val newYStr = if (y.toIntOrNull() == null || action.yStr != null) y else null
                     val newDuration = duration.toIntOrNull() ?: action.duration
-                    onSave(action.copy(x = newX, y = newY, duration = newDuration))
+                    onSave(action.copy(x = newX, y = newY, xStr = newXStr, yStr = newYStr, duration = newDuration))
                 }
             ) {
                 Text("Save")

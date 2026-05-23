@@ -206,34 +206,82 @@ class AutomationEngine @Inject constructor(
         }
     }
 
+    private fun resolveCoordinate(valueStr: String?, defaultValue: Int): Int {
+        if (valueStr.isNullOrEmpty()) {
+            return defaultValue
+        }
+        
+        // 尝试直接解析为数字
+        valueStr.toIntOrNull()?.let { return it }
+        
+        // 尝试解析变量引用，支持 ${var.x} 或 var.x
+        var varName = valueStr.trim()
+        if (varName.startsWith("\${") && varName.endsWith("}")) {
+            varName = varName.substring(2, varName.length - 1)
+        }
+        
+        // 支持变量.属性格式
+        val parts = varName.split(".", limit = 2)
+        val mainVarName = parts[0]
+        
+        if (variableStore.containsKey(mainVarName)) {
+            val varValue = variableStore[mainVarName]
+            if (varValue is Map<*, *>) {
+                if (parts.size == 2) {
+                    val propName = parts[1]
+                    varValue[propName]?.let {
+                        when (it) {
+                            is Int -> return it
+                            is Number -> return it.toInt()
+                            is String -> return it.toIntOrNull() ?: defaultValue
+                        }
+                    }
+                }
+            } else if (varValue is Int) {
+                return varValue
+            } else if (varValue is Number) {
+                return varValue.toInt()
+            }
+        }
+        
+        log("Failed to resolve coordinate: $valueStr, using default: $defaultValue", LogType.WARNING)
+        return defaultValue
+    }
+
     private suspend fun executeAction(action: ScriptAction) {
         val accessibilityService = AutoBotAccessibilityService.getInstance()
 
         when (action) {
             is ScriptAction.Tap -> {
+                val x = resolveCoordinate(action.xStr, action.x)
+                val y = resolveCoordinate(action.yStr, action.y)
                 if (accessibilityService != null) {
-                    accessibilityService.performTapWithDelay(action.x, action.y, action.duration)
-                    log("Tapped at (${action.x}, ${action.y})", LogType.SUCCESS)
+                    accessibilityService.performTapWithDelay(x, y, action.duration)
+                    log("Tapped at ($x, $y)", LogType.SUCCESS)
                 } else {
                     log("Accessibility service not available", LogType.ERROR)
                 }
             }
 
             is ScriptAction.Swipe -> {
+                val startX = resolveCoordinate(action.startXStr, action.startX)
+                val startY = resolveCoordinate(action.startYStr, action.startY)
+                val endX = resolveCoordinate(action.endXStr, action.endX)
+                val endY = resolveCoordinate(action.endYStr, action.endY)
                 if (accessibilityService != null) {
-                    accessibilityService.performSwipeWithDelay(
-                        action.startX, action.startY, action.endX, action.endY, action.duration
-                    )
-                    log("Swiped from (${action.startX}, ${action.startY}) to (${action.endX}, ${action.endY})", LogType.SUCCESS)
+                    accessibilityService.performSwipeWithDelay(startX, startY, endX, endY, action.duration)
+                    log("Swiped from ($startX, $startY) to ($endX, $endY)", LogType.SUCCESS)
                 } else {
                     log("Accessibility service not available", LogType.ERROR)
                 }
             }
 
             is ScriptAction.LongPress -> {
+                val x = resolveCoordinate(action.xStr, action.x)
+                val y = resolveCoordinate(action.yStr, action.y)
                 if (accessibilityService != null) {
-                    accessibilityService.performLongPressWithDelay(action.x, action.y, action.duration)
-                    log("Long pressed at (${action.x}, ${action.y}) for ${action.duration}ms", LogType.SUCCESS)
+                    accessibilityService.performLongPressWithDelay(x, y, action.duration)
+                    log("Long pressed at ($x, $y) for ${action.duration}ms", LogType.SUCCESS)
                 } else {
                     log("Accessibility service not available", LogType.ERROR)
                 }

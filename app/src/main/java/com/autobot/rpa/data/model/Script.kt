@@ -30,6 +30,8 @@ sealed class ScriptAction {
         override val order: Int = 0,
         val x: Int,
         val y: Int,
+        val xStr: String? = null,
+        val yStr: String? = null,
         val duration: Int = 100
     ) : ScriptAction()
 
@@ -40,6 +42,10 @@ sealed class ScriptAction {
         val startY: Int,
         val endX: Int,
         val endY: Int,
+        val startXStr: String? = null,
+        val startYStr: String? = null,
+        val endXStr: String? = null,
+        val endYStr: String? = null,
         val duration: Int = 500
     ) : ScriptAction()
 
@@ -48,6 +54,8 @@ sealed class ScriptAction {
         override val order: Int = 0,
         val x: Int,
         val y: Int,
+        val xStr: String? = null,
+        val yStr: String? = null,
         val duration: Int = 1000
     ) : ScriptAction()
 
@@ -156,6 +164,8 @@ class ScriptConverters {
                 json.put("type", "Tap")
                 json.put("x", action.x)
                 json.put("y", action.y)
+                json.put("xStr", action.xStr)
+                json.put("yStr", action.yStr)
                 json.put("duration", action.duration)
             }
             is ScriptAction.Swipe -> {
@@ -164,12 +174,18 @@ class ScriptConverters {
                 json.put("startY", action.startY)
                 json.put("endX", action.endX)
                 json.put("endY", action.endY)
+                json.put("startXStr", action.startXStr)
+                json.put("startYStr", action.startYStr)
+                json.put("endXStr", action.endXStr)
+                json.put("endYStr", action.endYStr)
                 json.put("duration", action.duration)
             }
             is ScriptAction.LongPress -> {
                 json.put("type", "LongPress")
                 json.put("x", action.x)
                 json.put("y", action.y)
+                json.put("xStr", action.xStr)
+                json.put("yStr", action.yStr)
                 json.put("duration", action.duration)
             }
             is ScriptAction.TextInput -> {
@@ -230,9 +246,30 @@ class ScriptConverters {
         val id = json.getString("id")
         val order = json.getInt("order")
         return when (type) {
-            "Tap" -> ScriptAction.Tap(id, order, json.getInt("x"), json.getInt("y"), json.optInt("duration", 100))
-            "Swipe" -> ScriptAction.Swipe(id, order, json.getInt("startX"), json.getInt("startY"), json.getInt("endX"), json.getInt("endY"), json.optInt("duration", 500))
-            "LongPress" -> ScriptAction.LongPress(id, order, json.getInt("x"), json.getInt("y"), json.optInt("duration", 1000))
+            "Tap" -> ScriptAction.Tap(
+                id, order, 
+                json.getInt("x"), json.getInt("y"), 
+                if (json.has("xStr") && !json.isNull("xStr")) json.getString("xStr") else null,
+                if (json.has("yStr") && !json.isNull("yStr")) json.getString("yStr") else null,
+                json.optInt("duration", 100)
+            )
+            "Swipe" -> ScriptAction.Swipe(
+                id, order, 
+                json.getInt("startX"), json.getInt("startY"), 
+                json.getInt("endX"), json.getInt("endY"),
+                if (json.has("startXStr") && !json.isNull("startXStr")) json.getString("startXStr") else null,
+                if (json.has("startYStr") && !json.isNull("startYStr")) json.getString("startYStr") else null,
+                if (json.has("endXStr") && !json.isNull("endXStr")) json.getString("endXStr") else null,
+                if (json.has("endYStr") && !json.isNull("endYStr")) json.getString("endYStr") else null,
+                json.optInt("duration", 500)
+            )
+            "LongPress" -> ScriptAction.LongPress(
+                id, order, 
+                json.getInt("x"), json.getInt("y"),
+                if (json.has("xStr") && !json.isNull("xStr")) json.getString("xStr") else null,
+                if (json.has("yStr") && !json.isNull("yStr")) json.getString("yStr") else null,
+                json.optInt("duration", 1000)
+            )
             "TextInput" -> ScriptAction.TextInput(id, order, json.getString("text"))
             "KeyPress" -> ScriptAction.KeyPress(id, order, json.getInt("keyCode"))
             "Delay" -> ScriptAction.Delay(id, order, json.getInt("milliseconds"))
