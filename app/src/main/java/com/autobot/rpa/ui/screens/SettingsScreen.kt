@@ -8,6 +8,7 @@ import android.os.Build
 import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -19,6 +20,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
@@ -96,7 +98,9 @@ fun SettingsMainScreen(navController: NavHostController) {
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     titleContentColor = MaterialTheme.colorScheme.onPrimary
-                )
+                ),
+                windowInsets = WindowInsets(0, 0, 0, 0),
+
             )
         }
     ) { padding ->
@@ -338,7 +342,9 @@ fun ScreenshotsListScreen(navController: NavHostController) {
                     containerColor = MaterialTheme.colorScheme.primary,
                     titleContentColor = MaterialTheme.colorScheme.onPrimary,
                     navigationIconContentColor = MaterialTheme.colorScheme.onPrimary
-                )
+                ),
+                windowInsets = WindowInsets(0, 0, 0, 0),
+
             )
         }
     ) { padding ->
@@ -425,6 +431,7 @@ fun ScreenshotsListScreen(navController: NavHostController) {
                                 titleContentColor = MaterialTheme.colorScheme.onPrimary,
                                 navigationIconContentColor = MaterialTheme.colorScheme.onPrimary
                             ),
+                            windowInsets = WindowInsets(0, 0, 0, 0),
                             actions = {
                                 IconButton(
                                     onClick = {
@@ -459,21 +466,22 @@ fun ScreenshotsListScreen(navController: NavHostController) {
                     }
                 ) { padding ->
                     Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(padding),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        val bitmap = BitmapFactory.decodeFile(file.absolutePath)
-                        if (bitmap != null) {
-                            androidx.compose.foundation.Image(
-                                bitmap = bitmap.asImageBitmap(),
-                                contentDescription = file.name,
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = androidx.compose.ui.layout.ContentScale.Fit
-                            )
-                        }
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding)
+                        .verticalScroll(rememberScrollState()),
+                    contentAlignment = Alignment.Center
+                ) {
+                    val bitmap = BitmapFactory.decodeFile(file.absolutePath)
+                    if (bitmap != null) {
+                        Image(
+                            bitmap = bitmap.asImageBitmap(),
+                            contentDescription = file.name,
+                            modifier = Modifier.fillMaxWidth(),
+                            contentScale = ContentScale.Fit
+                        )
                     }
+                }
                 }
             }
         }

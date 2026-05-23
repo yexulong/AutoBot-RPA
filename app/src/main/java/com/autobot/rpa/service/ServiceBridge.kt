@@ -19,4 +19,8 @@ object ServiceBridge {
     fun rerunCurrentScript() {
         automationEngine?.rerunCurrentScript()
     }
+
+    fun startExecution() {
+        automationEngine?.startExecution()
+    }
 }

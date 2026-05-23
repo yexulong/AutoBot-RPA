@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.autobot.rpa.R
 import com.autobot.rpa.MainActivity
+import com.autobot.rpa.data.model.Script
 import com.autobot.rpa.service.AutomationEngine
 import com.autobot.rpa.service.FloatingWindowService
 import java.text.SimpleDateFormat
@@ -49,7 +50,9 @@ fun ScriptExecutionScreen(
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     titleContentColor = MaterialTheme.colorScheme.onPrimary
-                )
+                ),
+                windowInsets = WindowInsets(0, 0, 0, 0),
+
             )
         }
     ) { padding ->
@@ -75,28 +78,43 @@ fun ScriptExecutionScreen(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     if (scripts.isEmpty()) {
-                        Text(
-                            text = "No scripts available. Create one first!",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.error
+                    Text(
+                        text = "No scripts available. Create one first!",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                } else {
+                    var expanded by remember { mutableStateOf(false) }
+                    ExposedDropdownMenuBox(
+                        expanded = expanded,
+                        onExpandedChange = { expanded = it }
+                    ) {
+                        OutlinedTextField(
+                            value = selectedScript?.name ?: "Select a script",
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Script") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .menuAnchor()
                         )
-                    } else {
-                        scripts.forEach { script ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                RadioButton(
-                                    selected = selectedScript?.id == script.id,
-                                    onClick = { viewModel.selectScript(script) }
-                                )
-                                Text(
-                                    text = script.name,
-                                    modifier = Modifier.weight(1f)
+                        ExposedDropdownMenu(
+                            expanded = expanded,
+                            onDismissRequest = { expanded = false }
+                        ) {
+                            scripts.forEach { script ->
+                                DropdownMenuItem(
+                                    text = { Text(script.name) },
+                                    onClick = {
+                                        viewModel.selectScript(script)
+                                        expanded = false
+                                    }
                                 )
                             }
                         }
                     }
+                }
 
                     Spacer(modifier = Modifier.height(16.dp))
 
@@ -135,35 +153,35 @@ fun ScriptExecutionScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     when (executionState) {
-                        is AutomationEngine.ExecutionState.Idle, 
-                        is AutomationEngine.ExecutionState.Completed, 
-                        is AutomationEngine.ExecutionState.Error -> {
-                            Button(
-                                onClick = { 
-                                    when {
-                                        !viewModel.isAccessibilityServiceEnabled() -> {
-                                            showAccessibilityDialog = true
-                                        }
-                                        !viewModel.checkOverlayPermission(context) -> {
-                                            showOverlayDialog = true
-                                        }
-                                        !viewModel.checkScreenshotPermission() -> {
-                                            showScreenshotDialog = true
-                                        }
-                                        else -> {
-                                            viewModel.startExecution()
-                                            minimizeApp(context as Activity)
-                                        }
-                                    }
-                                },
-                                enabled = selectedScript != null,
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Icon(Icons.Default.PlayArrow, contentDescription = null)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Run")
+                is AutomationEngine.ExecutionState.Idle, 
+                is AutomationEngine.ExecutionState.Completed, 
+                is AutomationEngine.ExecutionState.Error -> {
+                    Button(
+                        onClick = { 
+                            when {
+                                !viewModel.isAccessibilityServiceEnabled() -> {
+                                    showAccessibilityDialog = true
+                                }
+                                !viewModel.checkOverlayPermission(context) -> {
+                                    showOverlayDialog = true
+                                }
+                                !viewModel.checkScreenshotPermission() -> {
+                                    showScreenshotDialog = true
+                                }
+                                else -> {
+                                    viewModel.openFloatingWindow()
+                                    minimizeApp(context as Activity)
+                                }
                             }
-                        }
+                        },
+                        enabled = selectedScript != null,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.PlayArrow, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Run")
+                    }
+                }
                             is AutomationEngine.ExecutionState.Running -> {
                                 Button(
                                     onClick = { viewModel.pauseExecution() },

@@ -32,6 +32,7 @@ class FloatingWindowService : Service() {
     private var debugContainer: View? = null
     private var executionContainer: View? = null
     private var btnStart: Button? = null
+    private var btnStartExec: Button? = null
     private var btnStop: Button? = null
     private var btnDebug: Button? = null
     private var btnClose: ImageView? = null
@@ -164,6 +165,8 @@ class FloatingWindowService : Service() {
         executionContainer = overlayView?.findViewById(R.id.execution_container)
         val btnRerun = overlayView?.findViewById<android.widget.Button>(R.id.btn_rerun)
         val btnRerunExec = overlayView?.findViewById<android.widget.Button>(R.id.btn_rerun_exec)
+        btnStart = overlayView?.findViewById(R.id.btn_start)
+        btnStartExec = overlayView?.findViewById(R.id.btn_start_exec)
         btnStop = overlayView?.findViewById(R.id.btn_stop)
         btnClose = overlayView?.findViewById(R.id.btn_close)
         statusText = overlayView?.findViewById(R.id.status_text)
@@ -172,6 +175,13 @@ class FloatingWindowService : Service() {
         dragHandle = overlayView?.findViewById(R.id.drag_handle)
 
         setupDragListener()
+
+        // 开始按钮监听器
+        val startListener = android.view.View.OnClickListener {
+            ServiceBridge.startExecution()
+        }
+        btnStart?.setOnClickListener(startListener)
+        btnStartExec?.setOnClickListener(startListener)
 
         // 重新运行按钮监听器
         val rerunListener = android.view.View.OnClickListener {

@@ -79,6 +79,12 @@ class ScriptExecutionViewModel @Inject constructor(
         automationEngine.setRunMode(mode)
     }
 
+    fun openFloatingWindow() {
+        _selectedScript.value?.let { script ->
+            automationEngine.openFloatingWindow(script)
+        }
+    }
+
     fun startExecution() {
         _selectedScript.value?.let { script ->
             automationEngine.startExecution(script)

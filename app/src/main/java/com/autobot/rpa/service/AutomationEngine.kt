@@ -72,59 +72,69 @@ class AutomationEngine @Inject constructor(
         log("Run mode set to: ${mode.name}", LogType.INFO)
     }
 
-    fun startExecution(script: Script) {
-        if (_executionState.value == ExecutionState.Running) {
-            log("Script is already running", LogType.WARNING)
-            return
-        }
-
+    fun openFloatingWindow(script: Script) {
         currentScript = script
         FloatingWindowService.setCurrentScriptId(script.id)
+        _executionState.value = ExecutionState.Idle
+        _logs.value = emptyList()
+        _currentActionIndex.value = -1
 
-        executionJob = scope.launch {
-            _executionState.value = ExecutionState.Running
-            _logs.value = emptyList()
-            _currentActionIndex.value = -1
+        // 保持当前的服务类型，不要随意改变
+        // 如果服务没有运行，才启动默认类型的服务
+        if (!AutoBotForegroundService.isRunning.value) {
+            AutoBotForegroundService.startService(context)
+        }
+        AutoBotForegroundService.updateNotification(script.name)
+        
+        val floatingModeName = when (_currentRunMode.value) {
+            RunMode.DEBUG -> "DEBUG"
+            RunMode.EXECUTE -> "EXECUTION"
+        }
+        FloatingWindowService.startServiceWithName(context, floatingModeName, script.name)
+    }
 
-            log("Starting script: ${script.name}")
-            // 保持当前的服务类型，不要随意改变
-            // 如果服务没有运行，才启动默认类型的服务
-            if (!AutoBotForegroundService.isRunning.value) {
-                AutoBotForegroundService.startService(context)
+    fun startExecution() {
+        currentScript?.let { script ->
+            if (_executionState.value == ExecutionState.Running) {
+                log("Script is already running", LogType.WARNING)
+                return
             }
-            AutoBotForegroundService.updateNotification(script.name)
-            
-            val floatingModeName = when (_currentRunMode.value) {
-                RunMode.DEBUG -> "DEBUG"
-                RunMode.EXECUTE -> "EXECUTION"
-            }
-            FloatingWindowService.startServiceWithName(context, floatingModeName, script.name)
 
-            // 等待悬浮窗显示
-            delay(500)
+            executionJob = scope.launch {
+                _executionState.value = ExecutionState.Running
+                _logs.value = emptyList()
+                _currentActionIndex.value = -1
 
-            try {
-                scriptRepository.incrementRunCount(script.id)
-                executeActions(script.actions)
-                _executionState.value = ExecutionState.Idle
-                log("Script completed successfully", LogType.SUCCESS)
-                FloatingWindowService.updateStep("✅ 执行完成")
-            } catch (e: CancellationException) {
-                log("Script execution cancelled", LogType.WARNING)
-                _executionState.value = ExecutionState.Idle
-                FloatingWindowService.updateStep("⏹️ 已取消")
-            } catch (e: Exception) {
-                val errorMessage = e.message ?: "Unknown error"
-                log("Script execution failed: $errorMessage", LogType.ERROR)
-                _executionState.value = ExecutionState.Idle
-                FloatingWindowService.updateStep("❌ 执行失败: $errorMessage")
-            } finally {
-                delay(1000)
-                // 不要停止前台服务 - 这会导致 MediaProjection 失效
-                // AutoBotForegroundService.stopService(context)
-                // 不自动关闭悬浮窗，让用户自己关闭
+                log("Starting script: ${script.name}")
+                
+                try {
+                    scriptRepository.incrementRunCount(script.id)
+                    executeActions(script.actions)
+                    _executionState.value = ExecutionState.Idle
+                    log("Script completed successfully", LogType.SUCCESS)
+                    FloatingWindowService.updateStep("✅ 执行完成")
+                } catch (e: CancellationException) {
+                    log("Script execution cancelled", LogType.WARNING)
+                    _executionState.value = ExecutionState.Idle
+                    FloatingWindowService.updateStep("⏹️ 已取消")
+                } catch (e: Exception) {
+                    val errorMessage = e.message ?: "Unknown error"
+                    log("Script execution failed: $errorMessage", LogType.ERROR)
+                    _executionState.value = ExecutionState.Idle
+                    FloatingWindowService.updateStep("❌ 执行失败: $errorMessage")
+                } finally {
+                    delay(1000)
+                    // 不要停止前台服务 - 这会导致 MediaProjection 失效
+                    // AutoBotForegroundService.stopService(context)
+                    // 不自动关闭悬浮窗，让用户自己关闭
+                }
             }
         }
+    }
+
+    fun startExecution(script: Script) {
+        currentScript = script
+        startExecution()
     }
 
     fun pauseExecution() {
@@ -188,9 +198,6 @@ class AutomationEngine @Inject constructor(
             
             val stepInfo = "Step ${index + 1}/${actions.size}: $actionName"
             FloatingWindowService.updateStep(stepInfo)
-            
-            // 给用户一点时间看到步骤变化
-            delay(300)
             
             log("Executing: ${action::class.simpleName}", LogType.INFO)
             executeAction(action)

@@ -51,12 +51,21 @@ fun ScriptEditorScreen(
     val actions by viewModel.actions.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val hasChanges by viewModel.hasChanges.collectAsState()
+    val saveComplete by viewModel.saveComplete.collectAsState()
 
     var showAddActionDialog by remember { mutableStateOf(false) }
     var showEditDialog by remember { mutableStateOf(false) }
     var showSaveDialog by remember { mutableStateOf(false) }
+    var showSuccessDialog by remember { mutableStateOf(false) }
     var scriptName by remember { mutableStateOf("") }
     var editingAction by remember { mutableStateOf<ScriptAction?>(null) }
+
+    LaunchedEffect(saveComplete) {
+        if (saveComplete) {
+            showSuccessDialog = true
+            viewModel.resetSaveComplete()
+        }
+    }
 
     LaunchedEffect(script) {
         script?.let {
@@ -96,7 +105,9 @@ fun ScriptEditorScreen(
                     titleContentColor = MaterialTheme.colorScheme.onPrimary,
                     navigationIconContentColor = MaterialTheme.colorScheme.onPrimary,
                     actionIconContentColor = MaterialTheme.colorScheme.onPrimary
-                )
+                ),
+                windowInsets = WindowInsets(0, 0, 0, 0),
+
             )
         },
         floatingActionButton = {
@@ -258,6 +269,25 @@ fun ScriptEditorScreen(
                 }
             )
         }
+    }
+
+    if (showSuccessDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showSuccessDialog = false
+                onNavigateBack()
+            },
+            title = { Text("保存成功") },
+            text = { Text("脚本已保存") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showSuccessDialog = false
+                    onNavigateBack()
+                }) {
+                    Text("确定")
+                }
+            }
+        )
     }
 }
 

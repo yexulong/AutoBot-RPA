@@ -38,7 +38,9 @@ fun ScriptListScreen(
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     titleContentColor = MaterialTheme.colorScheme.onPrimary
-                )
+                ),
+                windowInsets = WindowInsets(0, 0, 0, 0),
+
             )
         },
         floatingActionButton = {

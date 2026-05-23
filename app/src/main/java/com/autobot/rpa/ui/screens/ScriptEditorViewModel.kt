@@ -32,6 +32,9 @@ class ScriptEditorViewModel @Inject constructor(
     private val _hasChanges = MutableStateFlow(false)
     val hasChanges: StateFlow<Boolean> = _hasChanges
 
+    private val _saveComplete = MutableStateFlow(false)
+    val saveComplete: StateFlow<Boolean> = _saveComplete
+
     init {
         if (scriptId > 0) {
             loadScript()
@@ -125,6 +128,11 @@ class ScriptEditorViewModel @Inject constructor(
                 scriptRepository.insertScript(newScript)
             }
             _hasChanges.value = false
+            _saveComplete.value = true
         }
+    }
+
+    fun resetSaveComplete() {
+        _saveComplete.value = false
     }
 }
