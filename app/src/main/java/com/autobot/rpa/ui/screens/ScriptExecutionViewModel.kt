@@ -9,6 +9,7 @@ import com.autobot.rpa.data.model.Script
 import com.autobot.rpa.data.repository.ScriptRepository
 import com.autobot.rpa.service.AutomationEngine
 import com.autobot.rpa.service.AutoBotAccessibilityService
+import com.autobot.rpa.service.ScreenshotManager
 import com.autobot.rpa.service.ServiceBridge
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,7 +20,8 @@ import javax.inject.Inject
 @HiltViewModel
 class ScriptExecutionViewModel @Inject constructor(
     private val scriptRepository: ScriptRepository,
-    private val automationEngine: AutomationEngine
+    private val automationEngine: AutomationEngine,
+    private val screenshotManager: ScreenshotManager
 ) : ViewModel() {
 
     val executionState = automationEngine.executionState
@@ -109,5 +111,9 @@ class ScriptExecutionViewModel @Inject constructor(
         } else {
             true
         }
+    }
+
+    fun checkScreenshotPermission(): Boolean {
+        return screenshotManager.hasPermission()
     }
 }

@@ -20,6 +20,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.autobot.rpa.R
+import com.autobot.rpa.MainActivity
 import com.autobot.rpa.service.AutomationEngine
 import com.autobot.rpa.service.FloatingWindowService
 import java.text.SimpleDateFormat
@@ -39,6 +40,7 @@ fun ScriptExecutionScreen(
     
     var showAccessibilityDialog by remember { mutableStateOf(false) }
     var showOverlayDialog by remember { mutableStateOf(false) }
+    var showScreenshotDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -144,6 +146,9 @@ fun ScriptExecutionScreen(
                                         }
                                         !viewModel.checkOverlayPermission(context) -> {
                                             showOverlayDialog = true
+                                        }
+                                        !viewModel.checkScreenshotPermission() -> {
+                                            showScreenshotDialog = true
                                         }
                                         else -> {
                                             viewModel.startExecution()
@@ -350,6 +355,29 @@ fun ScriptExecutionScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showOverlayDialog = false }) {
+                    Text("取消")
+                }
+            }
+        )
+    }
+    
+    if (showScreenshotDialog) {
+        AlertDialog(
+            onDismissRequest = { showScreenshotDialog = false },
+            title = { Text("需要截图权限") },
+            text = { Text("脚本执行功能需要截图权限，请授予权限") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        MainActivity.requestScreenshotPermission(context)
+                        showScreenshotDialog = false
+                    }
+                ) {
+                    Text("授权")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showScreenshotDialog = false }) {
                     Text("取消")
                 }
             }
