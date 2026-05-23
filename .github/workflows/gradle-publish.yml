@@ -32,7 +32,7 @@ jobs:
     - name: Decode keystore
       if: ${{ github.event_name == 'release' }}
       run: |
-        echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d &gt; app/autobot-release-key.keystore
+        echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > app/autobot-release-key.keystore
 
     - name: Build Release APK
       if: ${{ github.event_name == 'release' }}
