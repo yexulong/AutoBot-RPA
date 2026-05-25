@@ -168,6 +168,8 @@ class AutomationEngine @Inject constructor(
 
     private suspend fun executeActions(actions: List<ScriptAction>) {
         var index = 0
+        val loopStack = mutableListOf<LoopContext>()
+        
         while (index < actions.size) {
             if (executionJob?.isActive != true) break
 
@@ -200,11 +202,63 @@ class AutomationEngine @Inject constructor(
             FloatingWindowService.updateStep(stepInfo)
             
             log("Executing: ${action::class.simpleName}", LogType.INFO)
-            executeAction(action)
-
-            index++
+            
+            when (action) {
+                is ScriptAction.LoopStart -> {
+                    val loopEndIndex = findMatchingLoopEnd(actions, index)
+                    if (loopEndIndex != null) {
+                        val context = LoopContext(
+                            startIndex = index,
+                            endIndex = loopEndIndex,
+                            times = if (action.infinite) -1 else action.times,
+                            currentIteration = 0
+                        )
+                        loopStack.add(context)
+                        log("Loop started: ${if (action.infinite) "infinite" else "${action.times} times"}", LogType.INFO)
+                        index++
+                    } else {
+                        log("❌ Skipping invalid LoopStart at index $index", LogType.ERROR)
+                        index++
+                    }
+                }
+                is ScriptAction.LoopEnd -> {
+                    if (loopStack.isNotEmpty()) {
+                        val currentLoop = loopStack.last()
+                        currentLoop.currentIteration++
+                        
+                        val shouldContinue = if (currentLoop.times == -1) {
+                            true
+                        } else {
+                            currentLoop.currentIteration < currentLoop.times
+                        }
+                        
+                        if (shouldContinue) {
+                            log("Loop iteration ${currentLoop.currentIteration}/${currentLoop.times.takeIf { it != -1 } ?: "∞"}", LogType.INFO)
+                            index = currentLoop.startIndex + 1
+                        } else {
+                            log("Loop completed after ${currentLoop.currentIteration} iterations", LogType.SUCCESS)
+                            loopStack.removeLast()
+                            index++
+                        }
+                    } else {
+                        log("❌ Unmatched LoopEnd at index $index", LogType.ERROR)
+                        index++
+                    }
+                }
+                else -> {
+                    executeAction(action)
+                    index++
+                }
+            }
         }
     }
+
+    private data class LoopContext(
+        val startIndex: Int,
+        val endIndex: Int,
+        val times: Int,
+        var currentIteration: Int
+    )
 
     private fun resolveCoordinate(valueStr: String?, defaultValue: Int): Int {
         if (valueStr.isNullOrEmpty()) {
@@ -319,12 +373,8 @@ class AutomationEngine @Inject constructor(
                 findImage(action)
             }
 
-            is ScriptAction.LoopStart -> {
-                log("Loop started: ${if (action.infinite) "infinite" else "${action.times} times"}", LogType.INFO)
-            }
-
-            is ScriptAction.LoopEnd -> {
-                log("Loop ended", LogType.INFO)
+            is ScriptAction.LoopStart, is ScriptAction.LoopEnd -> {
+                // Handled in executeActions
             }
 
             is ScriptAction.Condition -> {
@@ -406,6 +456,29 @@ class AutomationEngine @Inject constructor(
             KeyEvent.KEYCODE_DPAD_CENTER -> "DPAD_CENTER"
             KeyEvent.KEYCODE_RECENT_APPS -> "RECENT_APPS"
             else -> "KEYCODE_$keyCode"
+        }
+    }
+
+    private fun findMatchingLoopEnd(actions: List<ScriptAction>, startIndex: Int): Int? {
+        var stack = 1
+        var index = startIndex + 1
+        
+        while (index < actions.size && stack > 0) {
+            when (actions[index]) {
+                is ScriptAction.LoopStart -> stack++
+                is ScriptAction.LoopEnd -> stack--
+                else -> {}
+            }
+            if (stack > 0) {
+                index++
+            }
+        }
+        
+        return if (stack == 0) {
+            index
+        } else {
+            log("❌ No matching LoopEnd found for LoopStart at index $startIndex", LogType.ERROR)
+            null
         }
     }
 
