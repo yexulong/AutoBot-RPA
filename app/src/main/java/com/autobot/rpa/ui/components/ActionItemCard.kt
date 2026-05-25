@@ -172,6 +172,11 @@ private fun getActionInfo(action: ScriptAction): Triple<ImageVector, String, Str
             "Find Image",
             "Timeout: ${action.timeout}ms"
         )
+        is ScriptAction.FindText -> Triple(
+            Icons.Default.TextFields,
+            "Find Text",
+            "Target: \"${action.targetText}\""
+        )
         is ScriptAction.LoopStart -> Triple(
             Icons.Default.Loop,
             "Loop Start",
@@ -188,6 +193,8 @@ private fun getActionInfo(action: ScriptAction): Triple<ImageVector, String, Str
             when (action.type) {
                 ConditionType.IMAGE_FOUND -> "If image found"
                 ConditionType.IMAGE_NOT_FOUND -> "If image not found"
+                ConditionType.TEXT_FOUND -> "If text found"
+                ConditionType.TEXT_NOT_FOUND -> "If text not found"
                 ConditionType.COLOR_MATCH -> "If color matches"
                 ConditionType.COLOR_NOT_MATCH -> "If color doesn't match"
                 ConditionType.ALWAYS_TRUE -> "Always true"

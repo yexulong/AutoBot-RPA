@@ -192,6 +192,7 @@ class AutomationEngine @Inject constructor(
                 is ScriptAction.Delay -> "Delay: ${action.milliseconds}ms"
                 is ScriptAction.Screenshot -> "Screenshot"
                 is ScriptAction.FindImage -> "FindImage"
+                is ScriptAction.FindText -> "FindText"
                 is ScriptAction.LoopStart -> "LoopStart"
                 is ScriptAction.LoopEnd -> "LoopEnd"
                 is ScriptAction.Condition -> "Condition"
@@ -371,6 +372,9 @@ class AutomationEngine @Inject constructor(
 
             is ScriptAction.FindImage -> {
                 findImage(action)
+            }
+            is ScriptAction.FindText -> {
+                findText(action)
             }
 
             is ScriptAction.LoopStart, is ScriptAction.LoopEnd -> {
@@ -632,6 +636,108 @@ class AutomationEngine @Inject constructor(
         log("⏰ Timeout reached! Image not found after $attemptCount attempts and ${System.currentTimeMillis() - startTime}ms", LogType.WARNING)
     }
 
+    private suspend fun findText(action: ScriptAction.FindText) {
+        log("===== Starting Find Text ======", LogType.INFO)
+        log("Target text: ${action.targetText}", LogType.INFO)
+        log("Threshold: ${action.threshold}", LogType.INFO)
+        log("Timeout: ${action.timeout}ms", LogType.INFO)
+        log("Debug mode: ${action.debugMode}", LogType.INFO)
+
+        val screenshotManager = ScreenshotManager.getInstance(context)
+        val textRecognitionService = TextRecognitionService.getInstance()
+        val currentState = screenshotManager.permissionState.value
+
+        if (currentState != ScreenshotManager.PermissionState.Granted) {
+            log("❌ Screen capture permission not granted. Please grant permission first.", LogType.ERROR)
+            return
+        }
+        log("✅ Screen capture permission granted", LogType.INFO)
+
+        val startTime = System.currentTimeMillis()
+        val retryInterval = 500L
+        var attemptCount = 0
+        var lastScreenBitmap: Bitmap? = null
+        var lastRecognitionResult: TextRecognitionService.TextRecognitionResult? = null
+
+        while (System.currentTimeMillis() - startTime < action.timeout) {
+            if (executionJob?.isActive != true) {
+                log("Execution stopped", LogType.WARNING)
+                break
+            }
+
+            attemptCount++
+            val elapsed = System.currentTimeMillis() - startTime
+            log("🔍 Attempt $attemptCount (elapsed: ${elapsed}ms/$action.timeout)...", LogType.INFO)
+
+            try {
+                val screenBitmap = takeScreenshotToBitmap()
+                if (screenBitmap != null) {
+                    lastScreenBitmap = screenBitmap
+                    log("📸 Screenshot taken: ${screenBitmap.width}x${screenBitmap.height}", LogType.INFO)
+                    
+                    val recognitionResult = textRecognitionService.findTextWithAllResults(
+                        screenBitmap,
+                        action.targetText,
+                        action.threshold
+                    )
+                    lastRecognitionResult = recognitionResult
+
+                    // 判断是否达到阈值
+                    val isTextFound = recognitionResult.bestMatch != null && recognitionResult.bestMatch.similarity >= action.threshold
+
+                    if (isTextFound) {
+                        val match = recognitionResult.bestMatch
+                        log("✅ Text found at (${match.x}, ${match.y}) with similarity ${String.format("%.2f", match.similarity)}, text: '${match.text}'", LogType.SUCCESS)
+                        
+                        if (action.debugMode) {
+                            saveTextDebugScreenshot(screenBitmap, recognitionResult.allMatches, true, attemptCount, action.targetText)
+                        }
+                        
+                        if (action.saveResult) {
+                            // Save result to variable store
+                            val resultMap = mapOf(
+                                "found" to true,
+                                "x" to match.x,
+                                "y" to match.y,
+                                "similarity" to match.similarity,
+                                "text" to match.text
+                            )
+                            action.resultVarName?.let { varName ->
+                                variableStore[varName] = resultMap
+                            }
+                        }
+                        return
+                    } else {
+                        // 没找到匹配
+                        val bestMatch = recognitionResult.bestMatch
+                        if (bestMatch != null) {
+                            log("❌ No match above threshold (best: ${String.format("%.2f", bestMatch.similarity)}, text: '${bestMatch.text}')", LogType.INFO)
+                        } else {
+                            log("❌ No match at all in this attempt", LogType.INFO)
+                        }
+                        
+                        // 如果是调试模式，每次尝试都保存截图
+                        if (action.debugMode) {
+                            saveTextDebugScreenshot(screenBitmap, recognitionResult.allMatches, false, attemptCount, action.targetText)
+                        }
+                    }
+                } else {
+                    log("⚠️ Failed to take screenshot", LogType.WARNING)
+                }
+            } catch (e: Exception) {
+                log("❌ Error during text recognition: ${e.message}", LogType.WARNING)
+                e.printStackTrace()
+            }
+
+            if (System.currentTimeMillis() - startTime < action.timeout) {
+                log("⏳ Waiting $retryInterval ms before next attempt...", LogType.INFO)
+                delay(retryInterval)
+            }
+        }
+
+        log("⏰ Timeout reached! Text not found after $attemptCount attempts and ${System.currentTimeMillis() - startTime}ms", LogType.WARNING)
+    }
+
     private fun saveDebugScreenshot(
         screenBitmap: Bitmap,
         matchResult: MatchResult?,
@@ -707,6 +813,41 @@ class AutomationEngine @Inject constructor(
         }
     }
 
+    private fun saveTextDebugScreenshot(
+        screenBitmap: Bitmap,
+        allMatches: List<TextMatchResult>,
+        found: Boolean,
+        attemptCount: Int,
+        targetText: String
+    ) {
+        try {
+            val title = if (found) "✅ Found: '$targetText'" else "❌ Looking for: '$targetText'"
+            val mutableBitmap = TextRecognitionService.getInstance().drawMultipleTextDetectionsOnBitmap(
+                screenBitmap,
+                allMatches,
+                title
+            )
+            
+            // Save the bitmap
+            val sdf = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault())
+            val fileName = "Debug_FindText_Attempt${attemptCount}_${sdf.format(java.util.Date())}"
+            
+            val screenshotManager = ScreenshotManager.getInstance(context)
+            screenshotManager.saveBitmapToFile(mutableBitmap, fileName) { result ->
+                if (result.isSuccess) {
+                    val file = result.getOrThrow()
+                    log("📸 Text debug screenshot saved: ${file.absolutePath}", LogType.SUCCESS)
+                } else {
+                    log("❌ Failed to save text debug screenshot", LogType.ERROR)
+                }
+            }
+            
+        } catch (e: Exception) {
+            log("❌ Error saving text debug screenshot: ${e.message}", LogType.ERROR)
+            e.printStackTrace()
+        }
+    }
+
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     private suspend fun takeScreenshotToBitmap(): Bitmap? {
         val screenshotManager = ScreenshotManager.getInstance(context)
@@ -739,6 +880,12 @@ class AutomationEngine @Inject constructor(
             }
             ConditionType.IMAGE_NOT_FOUND -> {
                 !checkImageFound(action.param1, action.param2.toDoubleOrNull() ?: 0.8)
+            }
+            ConditionType.TEXT_FOUND -> {
+                checkTextFound(action.param1, action.param2.toDoubleOrNull() ?: 0.8)
+            }
+            ConditionType.TEXT_NOT_FOUND -> {
+                !checkTextFound(action.param1, action.param2.toDoubleOrNull() ?: 0.8)
             }
             ConditionType.COLOR_MATCH -> {
                 false
@@ -794,6 +941,39 @@ class AutomationEngine @Inject constructor(
             log("✅ Image FOUND at (${matchResult?.x}, ${matchResult?.y}), similarity: ${String.format("%.2f", matchResult?.similarity ?: 0.0)}", LogType.SUCCESS)
         } else {
             log("❌ Image NOT found", LogType.INFO)
+        }
+        
+        return found
+    }
+
+    private suspend fun checkTextFound(targetText: String, threshold: Double): Boolean {
+        log("===== Checking if text exists ======", LogType.INFO)
+        
+        val screenshotManager = ScreenshotManager.getInstance(context)
+        val textRecognitionService = TextRecognitionService.getInstance()
+        val currentState = screenshotManager.permissionState.value
+
+        if (currentState != ScreenshotManager.PermissionState.Granted) {
+            log("❌ Screen capture permission not granted", LogType.ERROR)
+            return false
+        }
+
+        log("📸 Taking screenshot for text check...", LogType.INFO)
+        val screenBitmap = takeScreenshotToBitmap()
+        if (screenBitmap == null) {
+            log("❌ Failed to take screenshot for condition check", LogType.ERROR)
+            return false
+        }
+        log("✅ Screenshot taken, starting text recognition...", LogType.INFO)
+        
+        val recognitionResult = textRecognitionService.findTextWithAllResults(screenBitmap, targetText, threshold)
+        val found = recognitionResult.bestMatch != null && recognitionResult.bestMatch.similarity >= threshold
+        
+        if (found) {
+            val match = recognitionResult.bestMatch
+            log("✅ Text FOUND at (${match.x}, ${match.y}), similarity: ${String.format("%.2f", match.similarity)}, text: '${match.text}'", LogType.SUCCESS)
+        } else {
+            log("❌ Text NOT found", LogType.INFO)
         }
         
         return found

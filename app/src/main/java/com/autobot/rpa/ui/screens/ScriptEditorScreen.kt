@@ -309,6 +309,7 @@ fun EditActionDialog(
         is ScriptAction.Delay -> EditDelayDialog(action, onDismiss, onSave)
         is ScriptAction.Screenshot -> EditScreenshotDialog(action, onDismiss, onSave)
         is ScriptAction.FindImage -> EditFindImageDialog(action, onDismiss, onSave)
+        is ScriptAction.FindText -> EditFindTextDialog(action, onDismiss, onSave)
         is ScriptAction.LoopStart -> EditLoopStartDialog(action, onDismiss, onSave)
         is ScriptAction.LoopEnd -> EditLoopEndDialog(action, onDismiss, onSave)
         is ScriptAction.Condition -> EditConditionDialog(action, onDismiss, onSave)
@@ -1280,6 +1281,112 @@ fun EditLoopEndDialog(
     )
 }
 
+@Composable
+fun EditFindTextDialog(
+    action: ScriptAction.FindText,
+    onDismiss: () -> Unit,
+    onSave: (ScriptAction.FindText) -> Unit
+) {
+    var targetText by remember { mutableStateOf(action.targetText) }
+    var timeout by remember { mutableStateOf(action.timeout.toString()) }
+    var threshold by remember { mutableStateOf(action.threshold.toString()) }
+    var saveResult by remember { mutableStateOf(action.saveResult) }
+    var debugMode by remember { mutableStateOf(action.debugMode) }
+    var resultVarName by remember { mutableStateOf(action.resultVarName ?: "") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Find Text") },
+        text = {
+            val scrollState = rememberScrollState()
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(scrollState)
+            ) {
+                OutlinedTextField(
+                    value = targetText,
+                    onValueChange = { targetText = it },
+                    label = { Text("Target Text") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = timeout,
+                    onValueChange = { timeout = it },
+                    label = { Text("Timeout (ms)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = threshold,
+                    onValueChange = { threshold = it },
+                    label = { Text("Threshold (0.0-1.0)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    text = "提示：值越大匹配越严格，默认 0.8",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(
+                        checked = saveResult,
+                        onCheckedChange = { saveResult = it }
+                    )
+                    Text("Save Result")
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(
+                        checked = debugMode,
+                        onCheckedChange = { debugMode = it }
+                    )
+                    Text("Debug Mode")
+                }
+                OutlinedTextField(
+                    value = resultVarName,
+                    onValueChange = { resultVarName = it },
+                    label = { Text("Result Variable Name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val newTimeout = timeout.toIntOrNull() ?: action.timeout
+                    val newThreshold = threshold.toDoubleOrNull() ?: action.threshold
+                    val newResultVarName = if (resultVarName.isBlank()) null else resultVarName
+                    onSave(action.copy(
+                        targetText = targetText,
+                        timeout = newTimeout,
+                        threshold = newThreshold,
+                        saveResult = saveResult,
+                        resultVarName = newResultVarName,
+                        debugMode = debugMode
+                    ))
+                }
+            ) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditConditionDialog(
@@ -1333,6 +1440,8 @@ fun EditConditionDialog(
     val conditionTypes = listOf(
         ConditionType.IMAGE_FOUND,
         ConditionType.IMAGE_NOT_FOUND,
+        ConditionType.TEXT_FOUND,
+        ConditionType.TEXT_NOT_FOUND,
         ConditionType.COLOR_MATCH,
         ConditionType.COLOR_NOT_MATCH,
         ConditionType.ALWAYS_TRUE,
@@ -1340,6 +1449,7 @@ fun EditConditionDialog(
     )
     
     val isImageCondition = selectedType == ConditionType.IMAGE_FOUND || selectedType == ConditionType.IMAGE_NOT_FOUND
+    val isTextCondition = selectedType == ConditionType.TEXT_FOUND || selectedType == ConditionType.TEXT_NOT_FOUND
 
     // 向分支添加动作
     val addActionToBranch = { branchName: String, newAction: ScriptAction ->
@@ -1463,6 +1573,19 @@ fun EditConditionDialog(
                             Icon(Icons.Default.Refresh, contentDescription = null)
                         }
                     }
+                    Text(
+                        text = "Parameter 2：相似度阈值 (默认 0.8)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else if (isTextCondition) {
+                    OutlinedTextField(
+                        value = param1,
+                        onValueChange = { param1 = it },
+                        label = { Text("Target Text (Parameter 1)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                     Text(
                         text = "Parameter 2：相似度阈值 (默认 0.8)",
                         style = MaterialTheme.typography.bodySmall,
@@ -1851,6 +1974,7 @@ fun AddActionDialog(
         Triple("Delay", Icons.Default.Timer, "Wait for a duration"),
         Triple("Screenshot", Icons.Default.CameraAlt, "Take a screenshot"),
         Triple("Find Image", Icons.Default.ImageSearch, "Find an image on screen"),
+        Triple("Find Text", Icons.Default.TextFields, "Find text on screen"),
         Triple("Loop Start", Icons.Default.Loop, "Start a loop"),
         Triple("Loop End", Icons.Default.Loop, "End a loop"),
         Triple("Condition", Icons.Default.CallSplit, "Conditional branch"),
@@ -1885,6 +2009,13 @@ fun AddActionDialog(
                                     templatePath = "",
                                     timeout = 5000,
                                     threshold = 0.7
+                                )
+                                "Find Text" -> ScriptAction.FindText(
+                                    id = java.util.UUID.randomUUID().toString(),
+                                    order = 0,
+                                    targetText = "Text to find",
+                                    timeout = 5000,
+                                    threshold = 0.8
                                 )
                                 "Loop Start" -> ScriptAction.LoopStart(id = java.util.UUID.randomUUID().toString(), order = 0, times = 3)
                                 "Loop End" -> ScriptAction.LoopEnd(id = java.util.UUID.randomUUID().toString(), order = 0)
@@ -2051,6 +2182,11 @@ private fun getActionInfo(action: ScriptAction): Triple<androidx.compose.ui.grap
             "Find Image",
             "Timeout: ${action.timeout}ms"
         )
+        is ScriptAction.FindText -> Triple(
+            Icons.Default.TextFields,
+            "Find Text",
+            "Target: \"${action.targetText}\""
+        )
         is ScriptAction.LoopStart -> Triple(
             Icons.Default.Loop,
             "Loop Start",
@@ -2067,6 +2203,8 @@ private fun getActionInfo(action: ScriptAction): Triple<androidx.compose.ui.grap
             when (action.type) {
                 ConditionType.IMAGE_FOUND -> "If image found"
                 ConditionType.IMAGE_NOT_FOUND -> "If image not found"
+                ConditionType.TEXT_FOUND -> "If text found"
+                ConditionType.TEXT_NOT_FOUND -> "If text not found"
                 ConditionType.COLOR_MATCH -> "If color matches"
                 ConditionType.COLOR_NOT_MATCH -> "If color doesn't match"
                 ConditionType.ALWAYS_TRUE -> "Always true"

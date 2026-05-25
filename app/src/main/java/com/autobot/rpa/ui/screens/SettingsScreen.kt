@@ -35,6 +35,8 @@ import com.autobot.rpa.MainActivity
 import com.autobot.rpa.R
 import com.autobot.rpa.service.AutoBotAccessibilityService
 import com.autobot.rpa.service.ScreenshotManager
+import com.autobot.rpa.service.TextRecognitionService
+import com.autobot.rpa.service.TextMatchResult
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -51,6 +53,9 @@ fun SettingsScreen() {
         }
         composable("screenshots_list") {
             ScreenshotsListScreen(navController = navController)
+        }
+        composable("test_text_recognition") {
+            TestTextRecognitionScreen(navController = navController)
         }
     }
 }
@@ -194,6 +199,14 @@ fun SettingsMainScreen(navController: NavHostController) {
                     description = "Browse and manage captured screenshots",
                     onClick = {
                         navController.navigate("screenshots_list")
+                    }
+                )
+                SettingsItem(
+                    icon = Icons.Default.TextFields,
+                    title = "Test Text Recognition",
+                    description = "Test ML Kit text recognition functionality",
+                    onClick = {
+                        navController.navigate("test_text_recognition")
                     }
                 )
             }
@@ -571,6 +584,165 @@ fun ScreenshotThumbnail(
                     modifier = Modifier.size(16.dp),
                     tint = MaterialTheme.colorScheme.onErrorContainer
                 )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TestTextRecognitionScreen(navController: NavHostController) {
+    val context = LocalContext.current
+    
+    // UI 状态
+    var isInitialized by remember { mutableStateOf(false) }
+    
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("ML Kit 文本识别测试") },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "返回")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimary
+                ),
+                windowInsets = WindowInsets(0, 0, 0, 0)
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // 功能卡片
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "ML Kit 文本识别已集成",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    
+                    Button(
+                        onClick = { 
+                            try {
+                                // 初始化服务
+                                TextRecognitionService.Companion.init(context)
+                                isInitialized = true
+                            } catch (e: Exception) {
+                                android.util.Log.e("TestTextRecognition", "Init error", e)
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Check, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("初始化 ML Kit 服务")
+                    }
+                }
+            }
+            
+            // 状态显示
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = if (isInitialized) {
+                    CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
+                } else {
+                    CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                }
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "状态",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = if (isInitialized) {
+                            MaterialTheme.colorScheme.onTertiaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                    )
+                    Text(
+                        text = if (isInitialized) {
+                            "ML Kit 文本识别服务已就绪！"
+                        } else {
+                            "点击按钮初始化 ML Kit 服务"
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (isInitialized) {
+                            MaterialTheme.colorScheme.onTertiaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                    )
+                }
+            }
+            
+            // 如何使用
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "如何使用",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                    Text(
+                        text = "1. 在脚本编辑器中添加 \"Find Text\" 动作\n" +
+                                "2. 输入要查找的目标文字\n" +
+                                "3. 配置超时和阈值参数\n" +
+                                "4. 运行脚本进行测试\n" +
+                                "5. 查看调试截图（会标注识别到的文字）",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+            }
+            
+            // 主要功能
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = "主要功能",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                    Text(
+                        text = "• TextRecognitionService: ML Kit 文本识别服务\n" +
+                                "• ScriptAction.FindText: 查找屏幕上的文字\n" +
+                                "• ConditionType.TEXT_FOUND/TEXT_NOT_FOUND: 文字条件判断\n" +
+                                "• 调试模式: 保存带有文字标注的截图",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                }
             }
         }
     }

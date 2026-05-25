@@ -62,10 +62,11 @@ AutoBotRPA/
 - **Key Press**: Simulate physical buttons
 - **Delay**: Wait for specified duration
 
-### 2. Image Recognition
+### 2. Image and Text Recognition
 - **Screenshot**: Capture current screen with full implementation
 - **Screenshot Management**: View, share, and delete captured screenshots in Settings
 - **Find Image**: Template matching (basic implementation)
+- **Find Text**: OCR text recognition with ML Kit (supports Chinese and English)
 
 ### 3. Flow Control
 - **Loop**: Repeat actions (N times or infinite)
@@ -241,13 +242,12 @@ The app requires the following permissions:
 
 ## Future Enhancements
 
-1. Advanced image recognition with OpenCV
-2. OCR text recognition
-3. Variable system for storing data
+1. Color matching feature
+2. Loop nesting and complex conditions
+3. Full variable system for all actions
 4. Import/export scripts
 5. Cloud script sharing
 6. Recording mode (record user actions)
-7. Loop nesting and complex conditions
 
 ## Troubleshooting
 
