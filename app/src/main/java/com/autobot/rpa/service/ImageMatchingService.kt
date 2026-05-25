@@ -7,6 +7,12 @@ import android.util.Log
 import kotlin.math.abs
 import kotlin.math.sqrt
 import kotlin.system.measureTimeMillis
+import org.opencv.android.OpenCVLoader
+import org.opencv.android.Utils
+import org.opencv.core.Core
+import org.opencv.core.CvType
+import org.opencv.core.Mat
+import org.opencv.imgproc.Imgproc
 
 data class MatchResult(
     val x: Int,
@@ -30,8 +36,22 @@ class ImageMatchingService private constructor() {
         }
 
         fun init(context: Context) {
-            isInitialized = true
-            Log.d(TAG, "ImageMatchingService initialized successfully")
+            if (OpenCVLoader.initDebug()) {
+                Log.d(TAG, "OpenCV initialized successfully")
+                isInitialized = true
+            } else {
+                Log.e(TAG, "Failed to initialize OpenCV")
+                isInitialized = false
+            }
+        }
+        
+        fun bitmapToGrayMat(bitmap: Bitmap): Mat {
+            val rgbaMat = Mat()
+            Utils.bitmapToMat(bitmap, rgbaMat)
+            val grayMat = Mat()
+            Imgproc.cvtColor(rgbaMat, grayMat, Imgproc.COLOR_RGBA2GRAY)
+            rgbaMat.release()
+            return grayMat
         }
 
         fun waitForInit(timeout: Long = 0, unit: java.util.concurrent.TimeUnit? = null): Boolean {
@@ -93,63 +113,43 @@ class ImageMatchingService private constructor() {
         return bestMatch
     }
 
-    // 快速搜索策略 - 不缩放，使用大步长
+    // 使用 OpenCV 进行模板匹配
     private fun tryFastSearch(screen: Bitmap, template: Bitmap, threshold: Double): MatchResult? {
-        Log.d(TAG, "--- Starting fast search (no scaling) ---")
+        Log.d(TAG, "--- Starting OpenCV template matching ---")
         
-        val templatePixels = getGrayPixels(template)
-        val screenPixels = getGrayPixels(screen)
-        val templateStats = TemplateStats(templatePixels, template.width, template.height)
+        // 将 Bitmap 转换为 OpenCV Mat（灰度图）
+        val screenMat = bitmapToGrayMat(screen)
+        val templateMat = bitmapToGrayMat(template)
         
-        val searchWidth = screen.width - template.width
-        val searchHeight = screen.height - template.height
+        var resultMat: Mat? = null
         
-        // 根据模板大小选择步长
-        val step = when {
-            template.width < 50 -> 2
-            template.width < 100 -> 4
-            else -> 8
+        try {
+            // 创建结果矩阵
+            val resultCols = screenMat.cols() - templateMat.cols() + 1
+            val resultRows = screenMat.rows() - templateMat.rows() + 1
+            resultMat = Mat(resultRows, resultCols, CvType.CV_32FC1)
+            
+            // 使用 TM_CCOEFF_NORMED 方法进行匹配
+            Imgproc.matchTemplate(screenMat, templateMat, resultMat, Imgproc.TM_CCOEFF_NORMED)
+            
+            // 找到最佳匹配位置
+            val mmr = Core.minMaxLoc(resultMat)
+            val maxLoc = mmr.maxLoc
+            val maxVal = mmr.maxVal
+            
+            // 计算中心点坐标
+            val centerX = maxLoc.x.toInt() + template.width / 2
+            val centerY = maxLoc.y.toInt() + template.height / 2
+            
+            Log.d(TAG, "OpenCV matching found at ($centerX, $centerY), similarity: ${String.format("%.3f", maxVal)}")
+            
+            return MatchResult(centerX, centerY, maxVal)
+        } finally {
+            // 释放内存
+            screenMat.release()
+            templateMat.release()
+            resultMat?.release()
         }
-        
-        Log.d(TAG, "Fast search - step: $step, area: ${searchWidth}x$searchHeight")
-        
-        var bestMatch: MatchResult? = null
-        var bestSimilarity = 0.0
-        var iterations = 0
-        
-        for (y in 0..searchHeight step step) {
-            for (x in 0..searchWidth step step) {
-                iterations++
-                val similarity = fastCorrelation(
-                    screenPixels, screen.width,
-                    templatePixels, template.width, template.height,
-                    x, y, templateStats
-                )
-                
-                if (similarity > bestSimilarity) {
-                    bestSimilarity = similarity
-                    val centerX = x + template.width / 2
-                    val centerY = y + template.height / 2
-                    bestMatch = MatchResult(centerX, centerY, similarity)
-                    
-                    // 找到足够好的匹配就退出
-                    if (similarity >= threshold) {
-                        Log.d(TAG, "Fast search found match at ($centerX, $centerY), similarity: ${String.format("%.3f", similarity)}")
-                        return bestMatch
-                    }
-                }
-            }
-        }
-        
-        Log.d(TAG, "Fast search completed, $iterations iterations, best similarity: ${String.format("%.3f", bestSimilarity)}")
-        
-        // 如果有接近的匹配，在周围进行精细搜索
-        if (bestMatch != null && bestSimilarity > threshold * 0.7) {
-            Log.d(TAG, "Found close match, refining search around it...")
-            return refineSearch(screen, template, bestMatch, templatePixels, templateStats, threshold, step)
-        }
-        
-        return bestMatch
     }
 
     // 缩放搜索策略
