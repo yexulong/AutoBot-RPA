@@ -98,7 +98,8 @@ fun SettingsMainScreen(navController: NavHostController) {
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     titleContentColor = MaterialTheme.colorScheme.onPrimary
-                )
+                ),
+                windowInsets = WindowInsets(0, 0, 0, 0)
             )
         }
     ) { padding ->
@@ -340,7 +341,8 @@ fun ScreenshotsListScreen(navController: NavHostController) {
                     containerColor = MaterialTheme.colorScheme.primary,
                     titleContentColor = MaterialTheme.colorScheme.onPrimary,
                     navigationIconContentColor = MaterialTheme.colorScheme.onPrimary
-                )
+                ),
+                windowInsets = WindowInsets(0, 0, 0, 0)
             )
         }
     ) { padding ->
@@ -436,6 +438,7 @@ fun ScreenshotsListScreen(navController: NavHostController) {
                                     titleContentColor = MaterialTheme.colorScheme.onPrimary,
                                     navigationIconContentColor = MaterialTheme.colorScheme.onPrimary
                                 ),
+                                windowInsets = WindowInsets(0, 0, 0, 0),
                                 actions = {
                                     // 上一张按钮
                                     IconButton(
