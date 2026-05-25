@@ -158,20 +158,9 @@ fun ScriptExecutionScreen(
                 is AutomationEngine.ExecutionState.Error -> {
                     Button(
                         onClick = { 
-                            when {
-                                !viewModel.isAccessibilityServiceEnabled() -> {
-                                    showAccessibilityDialog = true
-                                }
-                                !viewModel.checkOverlayPermission(context) -> {
-                                    showOverlayDialog = true
-                                }
-                                !viewModel.checkScreenshotPermission() -> {
-                                    showScreenshotDialog = true
-                                }
-                                else -> {
-                                    viewModel.openFloatingWindow()
-                                    minimizeApp(context as Activity)
-                                }
+                            MainActivity.startFullPermissionFlow(context) {
+                                viewModel.openFloatingWindow()
+                                minimizeApp(context as Activity)
                             }
                         },
                         enabled = selectedScript != null,
