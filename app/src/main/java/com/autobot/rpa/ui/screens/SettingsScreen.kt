@@ -98,9 +98,7 @@ fun SettingsMainScreen(navController: NavHostController) {
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     titleContentColor = MaterialTheme.colorScheme.onPrimary
-                ),
-                windowInsets = WindowInsets(0, 0, 0, 0),
-
+                )
             )
         }
     ) { padding ->
@@ -342,9 +340,7 @@ fun ScreenshotsListScreen(navController: NavHostController) {
                     containerColor = MaterialTheme.colorScheme.primary,
                     titleContentColor = MaterialTheme.colorScheme.onPrimary,
                     navigationIconContentColor = MaterialTheme.colorScheme.onPrimary
-                ),
-                windowInsets = WindowInsets(0, 0, 0, 0),
-
+                )
             )
         }
     ) { padding ->
@@ -431,7 +427,6 @@ fun ScreenshotsListScreen(navController: NavHostController) {
                                 titleContentColor = MaterialTheme.colorScheme.onPrimary,
                                 navigationIconContentColor = MaterialTheme.colorScheme.onPrimary
                             ),
-                            windowInsets = WindowInsets(0, 0, 0, 0),
                             actions = {
                                 IconButton(
                                     onClick = {
@@ -465,23 +460,25 @@ fun ScreenshotsListScreen(navController: NavHostController) {
                         )
                     }
                 ) { padding ->
-                    Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding)
-                        .verticalScroll(rememberScrollState()),
-                    contentAlignment = Alignment.Center
-                ) {
-                    val bitmap = BitmapFactory.decodeFile(file.absolutePath)
-                    if (bitmap != null) {
-                        Image(
-                            bitmap = bitmap.asImageBitmap(),
-                            contentDescription = file.name,
-                            modifier = Modifier.fillMaxWidth(),
-                            contentScale = ContentScale.Fit
-                        )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(padding)
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        val bitmap = BitmapFactory.decodeFile(file.absolutePath)
+                        if (bitmap != null) {
+                            Image(
+                                bitmap = bitmap.asImageBitmap(),
+                                contentDescription = file.name,
+                                modifier = Modifier.fillMaxWidth(),
+                                contentScale = ContentScale.Fit
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(42.dp))
                     }
-                }
                 }
             }
         }
