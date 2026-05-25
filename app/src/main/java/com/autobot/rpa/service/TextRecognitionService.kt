@@ -59,6 +59,19 @@ class TextRecognitionService private constructor() {
         fun waitForInit(timeout: Long = 0, unit: java.util.concurrent.TimeUnit? = null): Boolean {
             return true
         }
+
+        fun release() {
+            if (isInitialized) {
+                try {
+                    textRecognizer.close()
+                    Log.d(TAG, "TextRecognitionService resources released")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error releasing TextRecognitionService resources", e)
+                }
+                instance = null
+                isInitialized = false
+            }
+        }
     }
 
     data class TextRecognitionResult(
