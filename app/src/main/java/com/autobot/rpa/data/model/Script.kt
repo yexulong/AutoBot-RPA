@@ -230,6 +230,18 @@ class ScriptConverters {
                 json.put("param1", action.param1)
                 json.put("param2", action.param2)
                 json.put("param3", action.param3)
+                // Serialize true branch
+                val trueBranchJsonArray = JSONArray()
+                action.trueBranch.forEach { branchAction ->
+                    trueBranchJsonArray.put(actionToJson(branchAction))
+                }
+                json.put("trueBranch", trueBranchJsonArray)
+                // Serialize false branch
+                val falseBranchJsonArray = JSONArray()
+                action.falseBranch.forEach { branchAction ->
+                    falseBranchJsonArray.put(actionToJson(branchAction))
+                }
+                json.put("falseBranch", falseBranchJsonArray)
             }
             is ScriptAction.Comment -> {
                 json.put("type", "Comment")
@@ -277,7 +289,33 @@ class ScriptConverters {
             "FindImage" -> ScriptAction.FindImage(id, order, json.getString("templatePath"), json.optInt("timeout", 5000), json.optBoolean("saveResult", false), json.optString("resultVarName", ""), if (json.isNull("matchX")) null else json.optInt("matchX"), if (json.isNull("matchY")) null else json.optInt("matchY"), json.optBoolean("found", false), json.optDouble("threshold", 0.7), json.optBoolean("debugMode", false))
             "LoopStart" -> ScriptAction.LoopStart(id, order, json.optInt("times", -1), json.optBoolean("infinite", false))
             "LoopEnd" -> ScriptAction.LoopEnd(id, order)
-            "Condition" -> ScriptAction.Condition(id, order, ConditionType.valueOf(json.getString("conditionType")), json.optString("param1", ""), json.optString("param2", ""), json.optString("param3", ""))
+            "Condition" -> {
+                // Deserialize true branch
+                val trueBranch = mutableListOf<ScriptAction>()
+                if (json.has("trueBranch") && !json.isNull("trueBranch")) {
+                    val trueBranchJsonArray = json.getJSONArray("trueBranch")
+                    for (i in 0 until trueBranchJsonArray.length()) {
+                        trueBranch.add(jsonToAction(trueBranchJsonArray.getJSONObject(i)))
+                    }
+                }
+                // Deserialize false branch
+                val falseBranch = mutableListOf<ScriptAction>()
+                if (json.has("falseBranch") && !json.isNull("falseBranch")) {
+                    val falseBranchJsonArray = json.getJSONArray("falseBranch")
+                    for (i in 0 until falseBranchJsonArray.length()) {
+                        falseBranch.add(jsonToAction(falseBranchJsonArray.getJSONObject(i)))
+                    }
+                }
+                ScriptAction.Condition(
+                    id, order, 
+                    ConditionType.valueOf(json.getString("conditionType")), 
+                    json.optString("param1", ""), 
+                    json.optString("param2", ""), 
+                    json.optString("param3", ""),
+                    trueBranch,
+                    falseBranch
+                )
+            }
             "Comment" -> ScriptAction.Comment(id, order, json.getString("text"))
             else -> throw IllegalArgumentException("Unknown action type: $type")
         }

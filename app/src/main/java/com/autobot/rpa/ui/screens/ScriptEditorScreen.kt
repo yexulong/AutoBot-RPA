@@ -22,6 +22,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.Divider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -1295,9 +1296,13 @@ fun EditConditionDialog(
     var param1 by remember { mutableStateOf(action.param1) }
     var param2 by remember { mutableStateOf(action.param2) }
     var param3 by remember { mutableStateOf(action.param3) }
+    val trueBranch = remember { mutableStateListOf<ScriptAction>().apply { addAll(action.trueBranch) } }
+    val falseBranch = remember { mutableStateListOf<ScriptAction>().apply { addAll(action.falseBranch) } }
     var showScreenshotPicker by remember { mutableStateOf(false) }
     var showSourceDialog by remember { mutableStateOf(false) }
     var screenshotFiles by remember { mutableStateOf<List<File>>(emptyList()) }
+    var showAddActionToBranchDialog by remember { mutableStateOf<String?>(null) } // "true" or "false"
+    var editingBranchAction by remember { mutableStateOf<Pair<ScriptAction, String>?>(null) } // (action, branchName)
     
     // 刷新截图列表函数
     val refreshScreenshots = {
@@ -1336,17 +1341,69 @@ fun EditConditionDialog(
     
     val isImageCondition = selectedType == ConditionType.IMAGE_FOUND || selectedType == ConditionType.IMAGE_NOT_FOUND
 
+    // 向分支添加动作
+    val addActionToBranch = { branchName: String, newAction: ScriptAction ->
+        when (branchName) {
+            "true" -> trueBranch.add(newAction)
+            "false" -> falseBranch.add(newAction)
+        }
+        showAddActionToBranchDialog = null
+    }
+    
+    // 更新分支中的动作
+    val updateActionInBranch = { branchName: String, oldAction: ScriptAction, newAction: ScriptAction ->
+        when (branchName) {
+            "true" -> {
+                val index = trueBranch.indexOfFirst { it.id == oldAction.id }
+                if (index != -1) trueBranch[index] = newAction
+            }
+            "false" -> {
+                val index = falseBranch.indexOfFirst { it.id == oldAction.id }
+                if (index != -1) falseBranch[index] = newAction
+            }
+        }
+        editingBranchAction = null
+    }
+    
+    // 从分支删除动作
+    val deleteActionFromBranch = { branchName: String, actionToDelete: ScriptAction ->
+        when (branchName) {
+            "true" -> trueBranch.remove(actionToDelete)
+            "false" -> falseBranch.remove(actionToDelete)
+        }
+    }
+    
+    // 移动分支中的动作
+    val moveActionInBranch = { branchName: String, fromIndex: Int, toIndex: Int ->
+        when (branchName) {
+            "true" -> {
+                if (toIndex >= 0 && toIndex < trueBranch.size) {
+                    val item = trueBranch.removeAt(fromIndex)
+                    trueBranch.add(toIndex, item)
+                }
+            }
+            "false" -> {
+                if (toIndex >= 0 && toIndex < falseBranch.size) {
+                    val item = falseBranch.removeAt(fromIndex)
+                    falseBranch.add(toIndex, item)
+                }
+            }
+        }
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Edit Condition") },
         text = {
             val scrollState = rememberScrollState()
             Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier
                     .fillMaxWidth()
                     .verticalScroll(scrollState)
+                    .padding(vertical = 8.dp)
             ) {
+                // 条件类型和参数配置
                 ExposedDropdownMenuBox(
                     expanded = expanded,
                     onExpandedChange = { expanded = it }
@@ -1439,12 +1496,139 @@ fun EditConditionDialog(
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
+                
+                Divider()
+                
+                // True 分支配置
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(28.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "True Branch",
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Button(
+                                onClick = { showAddActionToBranchDialog = "true" },
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = "Add action to true branch",
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Add")
+                            }
+                        }
+                        
+                        if (trueBranch.isEmpty()) {
+                            Text(
+                                text = "No actions in true branch. Click + to add.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(vertical = 8.dp)
+                            )
+                        } else {
+                            trueBranch.forEachIndexed { index, branchAction ->
+                                BranchActionItem(
+                                    action = branchAction,
+                                    index = index,
+                                    branchName = "true",
+                                    onEdit = { editingBranchAction = Pair(branchAction, "true") },
+                                    onDelete = { deleteActionFromBranch("true", branchAction) },
+                                    onMoveUp = { if (index > 0) moveActionInBranch("true", index, index - 1) },
+                                    onMoveDown = { if (index < trueBranch.size - 1) moveActionInBranch("true", index, index + 1) }
+                                )
+                            }
+                        }
+                    }
+                }
+                
+                // False 分支配置
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f))
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Cancel,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(28.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "False Branch",
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Button(
+                                onClick = { showAddActionToBranchDialog = "false" },
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = "Add action to false branch",
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Add")
+                            }
+                        }
+                        
+                        if (falseBranch.isEmpty()) {
+                            Text(
+                                text = "No actions in false branch. Click + to add.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(vertical = 8.dp)
+                            )
+                        } else {
+                            falseBranch.forEachIndexed { index, branchAction ->
+                                BranchActionItem(
+                                    action = branchAction,
+                                    index = index,
+                                    branchName = "false",
+                                    onEdit = { editingBranchAction = Pair(branchAction, "false") },
+                                    onDelete = { deleteActionFromBranch("false", branchAction) },
+                                    onMoveUp = { if (index > 0) moveActionInBranch("false", index, index - 1) },
+                                    onMoveDown = { if (index < falseBranch.size - 1) moveActionInBranch("false", index, index + 1) }
+                                )
+                            }
+                        }
+                    }
+                }
             }
         },
         confirmButton = {
             TextButton(
                 onClick = {
-                    onSave(action.copy(type = selectedType, param1 = param1, param2 = param2, param3 = param3))
+                    onSave(action.copy(
+                        type = selectedType,
+                        param1 = param1,
+                        param2 = param2,
+                        param3 = param3,
+                        trueBranch = trueBranch.toList(),
+                        falseBranch = falseBranch.toList()
+                    ))
                 }
             ) {
                 Text("Save")
@@ -1510,6 +1694,110 @@ fun EditConditionDialog(
                 showScreenshotPicker = false
             }
         )
+    }
+    
+    // 向分支添加动作对话框
+    showAddActionToBranchDialog?.let { branchName ->
+        AddActionDialog(
+            onDismiss = { showAddActionToBranchDialog = null },
+            onActionSelected = { newAction -> addActionToBranch(branchName, newAction) }
+        )
+    }
+    
+    // 编辑分支动作对话框
+    editingBranchAction?.let { (actionToEdit, branchName) ->
+        EditActionDialog(
+            action = actionToEdit,
+            onDismiss = { editingBranchAction = null },
+            onSave = { newAction -> updateActionInBranch(branchName, actionToEdit, newAction) }
+        )
+    }
+}
+
+// 分支动作项组件
+@Composable
+fun BranchActionItem(
+    action: ScriptAction,
+    index: Int,
+    branchName: String,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit
+) {
+    val (icon, title, description) = getActionInfo(action)
+    
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "${index + 1}.",
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.width(32.dp)
+            )
+            
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+            
+            Spacer(modifier = Modifier.width(8.dp))
+            
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall
+                )
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            
+            IconButton(onClick = onMoveUp, modifier = Modifier.size(28.dp)) {
+                Icon(
+                    imageVector = Icons.Default.KeyboardArrowUp,
+                    contentDescription = "Move up",
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            IconButton(onClick = onMoveDown, modifier = Modifier.size(28.dp)) {
+                Icon(
+                    imageVector = Icons.Default.KeyboardArrowDown,
+                    contentDescription = "Move down",
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            
+            IconButton(onClick = onEdit, modifier = Modifier.size(28.dp)) {
+                Icon(
+                    imageVector = Icons.Default.Edit,
+                    contentDescription = "Edit",
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            
+            IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "Delete",
+                    modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.error
+                )
+            }
+        }
     }
 }
 
@@ -1718,4 +2006,77 @@ private fun getFileName(context: Context, uri: Uri): String? {
         }
     }
     return result
+}
+
+// 获取动作信息（复制自 ActionItemCard.kt）
+private fun getActionInfo(action: ScriptAction): Triple<androidx.compose.ui.graphics.vector.ImageVector, String, String> {
+    return when (action) {
+        is ScriptAction.Tap -> Triple(
+            Icons.Default.TouchApp,
+            "Tap",
+            "Position: (${action.x}, ${action.y})"
+        )
+        is ScriptAction.Swipe -> Triple(
+            Icons.Default.Swipe,
+            "Swipe",
+            "From (${action.startX}, ${action.startY}) to (${action.endX}, ${action.endY})"
+        )
+        is ScriptAction.LongPress -> Triple(
+            Icons.Default.TouchApp,
+            "Long Press",
+            "Position: (${action.x}, ${action.y}), Duration: ${action.duration}ms"
+        )
+        is ScriptAction.TextInput -> Triple(
+            Icons.Default.TextFields,
+            "Text Input",
+            "\"${action.text}\""
+        )
+        is ScriptAction.KeyPress -> Triple(
+            Icons.Default.Keyboard,
+            "Key Press",
+            "KeyCode: ${action.keyCode}"
+        )
+        is ScriptAction.Delay -> Triple(
+            Icons.Default.Timer,
+            "Delay",
+            "${action.milliseconds}ms"
+        )
+        is ScriptAction.Screenshot -> Triple(
+            Icons.Default.CameraAlt,
+            "Screenshot",
+            action.fileName
+        )
+        is ScriptAction.FindImage -> Triple(
+            Icons.Default.ImageSearch,
+            "Find Image",
+            "Timeout: ${action.timeout}ms"
+        )
+        is ScriptAction.LoopStart -> Triple(
+            Icons.Default.Loop,
+            "Loop Start",
+            if (action.infinite) "Infinite loop" else "${action.times} times"
+        )
+        is ScriptAction.LoopEnd -> Triple(
+            Icons.Default.Loop,
+            "Loop End",
+            "End of loop"
+        )
+        is ScriptAction.Condition -> Triple(
+            Icons.Default.CallSplit,
+            "Condition",
+            when (action.type) {
+                ConditionType.IMAGE_FOUND -> "If image found"
+                ConditionType.IMAGE_NOT_FOUND -> "If image not found"
+                ConditionType.COLOR_MATCH -> "If color matches"
+                ConditionType.COLOR_NOT_MATCH -> "If color doesn't match"
+                ConditionType.ALWAYS_TRUE -> "Always true"
+                ConditionType.ALWAYS_FALSE -> "Always false"
+            }
+        )
+        is ScriptAction.Comment -> Triple(
+            Icons.Default.Comment,
+            "Comment",
+            action.text
+        )
+    }
 }
