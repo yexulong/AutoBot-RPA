@@ -318,7 +318,7 @@ fun ScreenshotsListScreen(navController: NavHostController) {
     val context = LocalContext.current
     val screenshotsDir = context.filesDir.resolve("screenshots")
     var screenshotFiles by remember { mutableStateOf<List<File>>(emptyList()) }
-    var selectedImage by remember { mutableStateOf<File?>(null) }
+    var selectedImageIndex by remember { mutableStateOf<Int?>(null) }
     
     // 加载截图列表
     LaunchedEffect(Unit) {
@@ -387,10 +387,17 @@ fun ScreenshotsListScreen(navController: NavHostController) {
                     val file = screenshotFiles[index]
                     ScreenshotThumbnail(
                         file = file,
-                        onClick = { selectedImage = file },
+                        onClick = { selectedImageIndex = index },
                         onDelete = {
                             file.delete()
                             screenshotFiles = screenshotFiles.filter { it != file }
+                            // 如果删除的是当前查看的图片，关闭对话框
+                            if (selectedImageIndex == index) {
+                                selectedImageIndex = null
+                            } else if (selectedImageIndex != null && selectedImageIndex!! > index) {
+                                // 如果删除的是之前的图片，调整索引
+                                selectedImageIndex = selectedImageIndex!! - 1
+                            }
                         }
                     )
                 }
@@ -399,85 +406,106 @@ fun ScreenshotsListScreen(navController: NavHostController) {
     }
     
     // 查看大图的对话框
-    selectedImage?.let { file ->
-        androidx.compose.ui.window.Dialog(
-            onDismissRequest = { selectedImage = null },
-            properties = androidx.compose.ui.window.DialogProperties(
-                usePlatformDefaultWidth = false,
-                dismissOnBackPress = true,
-                dismissOnClickOutside = true
-            )
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background)
+    selectedImageIndex?.let { index ->
+        if (index >= 0 && index < screenshotFiles.size) {
+            val file = screenshotFiles[index]
+            androidx.compose.ui.window.Dialog(
+                onDismissRequest = { selectedImageIndex = null },
+                properties = androidx.compose.ui.window.DialogProperties(
+                    usePlatformDefaultWidth = false,
+                    dismissOnBackPress = true,
+                    dismissOnClickOutside = true
+                )
             ) {
-                Scaffold(
-                    topBar = {
-                        TopAppBar(
-                            title = { Text(file.name) },
-                            navigationIcon = {
-                                IconButton(onClick = { selectedImage = null }) {
-                                    Icon(Icons.Default.Close, contentDescription = "Close")
-                                }
-                            },
-                            colors = TopAppBarDefaults.topAppBarColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                                navigationIconContentColor = MaterialTheme.colorScheme.onPrimary
-                            ),
-                            actions = {
-                                IconButton(
-                                    onClick = {
-                                        // 分享截图
-                                        val uri = androidx.core.content.FileProvider.getUriForFile(
-                                            context,
-                                            "${context.packageName}.fileprovider",
-                                            file
-                                        )
-                                        val intent = Intent(Intent.ACTION_SEND).apply {
-                                            type = "image/png"
-                                            putExtra(Intent.EXTRA_STREAM, uri)
-                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background)
+                ) {
+                    Scaffold(
+                        topBar = {
+                            TopAppBar(
+                                title = { Text("${index + 1}/${screenshotFiles.size} - ${file.name}") },
+                                navigationIcon = {
+                                    IconButton(onClick = { selectedImageIndex = null }) {
+                                        Icon(Icons.Default.Close, contentDescription = "Close")
+                                    }
+                                },
+                                colors = TopAppBarDefaults.topAppBarColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
+                                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimary
+                                ),
+                                actions = {
+                                    // 上一张按钮
+                                    IconButton(
+                                        onClick = { if (index > 0) selectedImageIndex = index - 1 },
+                                        enabled = index > 0
+                                    ) {
+                                        Icon(Icons.Default.ArrowBack, contentDescription = "Previous")
+                                    }
+                                    // 下一张按钮
+                                    IconButton(
+                                        onClick = { if (index < screenshotFiles.size - 1) selectedImageIndex = index + 1 },
+                                        enabled = index < screenshotFiles.size - 1
+                                    ) {
+                                        Icon(Icons.Default.ArrowForward, contentDescription = "Next")
+                                    }
+                                    IconButton(
+                                        onClick = {
+                                            // 分享截图
+                                            val uri = androidx.core.content.FileProvider.getUriForFile(
+                                                context,
+                                                "${context.packageName}.fileprovider",
+                                                file
+                                            )
+                                            val intent = Intent(Intent.ACTION_SEND).apply {
+                                                type = "image/png"
+                                                putExtra(Intent.EXTRA_STREAM, uri)
+                                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                            }
+                                            context.startActivity(Intent.createChooser(intent, "Share Screenshot"))
                                         }
-                                        context.startActivity(Intent.createChooser(intent, "Share Screenshot"))
+                                    ) {
+                                        Icon(Icons.Default.Share, contentDescription = "Share")
                                     }
-                                ) {
-                                    Icon(Icons.Default.Share, contentDescription = "Share")
-                                }
-                                IconButton(
-                                    onClick = {
-                                        // 删除截图
-                                        file.delete()
-                                        screenshotFiles = screenshotFiles.filter { it != file }
-                                        selectedImage = null
+                                    IconButton(
+                                        onClick = {
+                                            // 删除截图
+                                            file.delete()
+                                            screenshotFiles = screenshotFiles.filter { it != file }
+                                            if (screenshotFiles.isEmpty()) {
+                                                selectedImageIndex = null
+                                            } else if (index >= screenshotFiles.size) {
+                                                selectedImageIndex = screenshotFiles.size - 1
+                                            }
+                                        }
+                                    ) {
+                                        Icon(Icons.Default.Delete, contentDescription = "Delete")
                                     }
-                                ) {
-                                    Icon(Icons.Default.Delete, contentDescription = "Delete")
                                 }
-                            }
-                        )
-                    }
-                ) { padding ->
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(padding)
-                            .verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        val bitmap = BitmapFactory.decodeFile(file.absolutePath)
-                        if (bitmap != null) {
-                            Image(
-                                bitmap = bitmap.asImageBitmap(),
-                                contentDescription = file.name,
-                                modifier = Modifier.fillMaxWidth(),
-                                contentScale = ContentScale.Fit
                             )
                         }
-                        Spacer(modifier = Modifier.height(42.dp))
+                    ) { padding ->
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(padding)
+                                .verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            val bitmap = BitmapFactory.decodeFile(file.absolutePath)
+                            if (bitmap != null) {
+                                Image(
+                                    bitmap = bitmap.asImageBitmap(),
+                                    contentDescription = file.name,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    contentScale = ContentScale.Fit
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(42.dp))
+                        }
                     }
                 }
             }
