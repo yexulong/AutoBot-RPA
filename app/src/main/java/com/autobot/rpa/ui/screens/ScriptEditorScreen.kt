@@ -16,6 +16,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -916,8 +918,12 @@ fun EditFindImageDialog(
         onDismissRequest = onDismiss,
         title = { Text("Edit Find Image") },
         text = {
+            val scrollState = rememberScrollState()
             Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(scrollState)
             ) {
                 OutlinedTextField(
                     value = templatePath,
@@ -1334,8 +1340,12 @@ fun EditConditionDialog(
         onDismissRequest = onDismiss,
         title = { Text("Edit Condition") },
         text = {
+            val scrollState = rememberScrollState()
             Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(scrollState)
             ) {
                 ExposedDropdownMenuBox(
                     expanded = expanded,
