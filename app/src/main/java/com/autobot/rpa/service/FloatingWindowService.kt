@@ -20,10 +20,13 @@ import com.autobot.rpa.MainActivity
 import com.autobot.rpa.R
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
 class FloatingWindowService : Service() {
 
@@ -33,7 +36,10 @@ class FloatingWindowService : Service() {
     private var executionContainer: View? = null
     private var btnStart: Button? = null
     private var btnStartExec: Button? = null
+    private var btnRerun: Button? = null
+    private var btnRerunExec: Button? = null
     private var btnStop: Button? = null
+    private var btnStopDebug: Button? = null
     private var btnDebug: Button? = null
     private var btnClose: ImageView? = null
     private var statusText: TextView? = null
@@ -42,11 +48,13 @@ class FloatingWindowService : Service() {
     private var dragHandle: View? = null
 
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private var stateCollectionJob: Job? = null
     private val mainHandler = Handler(Looper.getMainLooper())
 
     private var currentMode = FloatingWindowMode.EXECUTION
     private val logList = mutableListOf<String>()
     private var currentScriptId: Long = -1L
+    private var lastStepText: String = "就绪"
 
     companion object {
         private val _isServiceRunning = MutableStateFlow(false)
@@ -145,6 +153,7 @@ class FloatingWindowService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        stateCollectionJob?.cancel()
         hideOverlay()
         instance = null
         _isServiceRunning.value = false
@@ -163,11 +172,12 @@ class FloatingWindowService : Service() {
 
         debugContainer = overlayView?.findViewById(R.id.debug_container)
         executionContainer = overlayView?.findViewById(R.id.execution_container)
-        val btnRerun = overlayView?.findViewById<android.widget.Button>(R.id.btn_rerun)
-        val btnRerunExec = overlayView?.findViewById<android.widget.Button>(R.id.btn_rerun_exec)
+        btnRerun = overlayView?.findViewById(R.id.btn_rerun)
+        btnRerunExec = overlayView?.findViewById(R.id.btn_rerun_exec)
         btnStart = overlayView?.findViewById(R.id.btn_start)
         btnStartExec = overlayView?.findViewById(R.id.btn_start_exec)
         btnStop = overlayView?.findViewById(R.id.btn_stop)
+        btnStopDebug = overlayView?.findViewById(R.id.btn_stop_debug)
         btnClose = overlayView?.findViewById(R.id.btn_close)
         statusText = overlayView?.findViewById(R.id.status_text)
         stepText = overlayView?.findViewById(R.id.step_text)
@@ -191,9 +201,11 @@ class FloatingWindowService : Service() {
         btnRerunExec?.setOnClickListener(rerunListener)
 
         // 停止按钮监听器
-        btnStop?.setOnClickListener {
+        val stopListener = android.view.View.OnClickListener {
             ServiceBridge.stopExecution()
         }
+        btnStop?.setOnClickListener(stopListener)
+        btnStopDebug?.setOnClickListener(stopListener)
 
         btnClose?.setOnClickListener {
             onFloatingWindowActionListener?.onClose()
@@ -226,6 +238,107 @@ class FloatingWindowService : Service() {
             updateTitleText(scriptName)
         }
         switchWindowMode(currentMode)
+        
+        // 开始监听执行状态
+        startStateCollection()
+    }
+    
+    private fun startStateCollection() {
+        stateCollectionJob?.cancel()
+        stateCollectionJob = scope.launch {
+            ServiceBridge.getAutomationEngine()?.let { engine ->
+                engine.executionState.collectLatest { state ->
+                    updateUiForState(state)
+                }
+            }
+        }
+        
+        // 初始化 UI 为当前状态
+        ServiceBridge.getAutomationEngine()?.let { engine ->
+            updateUiForState(engine.executionState.value)
+        }
+    }
+    
+    private fun updateUiForState(state: AutomationEngine.ExecutionState) {
+        runOnMainThread {
+            when (state) {
+                is AutomationEngine.ExecutionState.Idle,
+                is AutomationEngine.ExecutionState.Completed,
+                is AutomationEngine.ExecutionState.Error -> {
+                    // 显示开始和重新运行，隐藏停止（EXECUTE 模式）
+                    btnStartExec?.visibility = View.VISIBLE
+                    btnRerunExec?.visibility = View.VISIBLE
+                    btnStop?.visibility = View.GONE
+                    
+                    // DEBUG 模式也更新按钮
+                    btnStart?.visibility = View.VISIBLE
+                    btnRerun?.visibility = View.VISIBLE
+                    btnStopDebug?.visibility = View.GONE
+                    
+                    // 设置按钮文本为"开始"
+                    btnStartExec?.text = "开始"
+                    btnStart?.text = "开始"
+                    btnStartExec?.setOnClickListener {
+                        ServiceBridge.startExecution()
+                    }
+                    btnStart?.setOnClickListener {
+                        ServiceBridge.startExecution()
+                    }
+                    
+                    // 更新状态文本（EXECUTE 模式）
+                    val stateText = when (state) {
+                        is AutomationEngine.ExecutionState.Idle -> "就绪"
+                        is AutomationEngine.ExecutionState.Completed -> "✅ 执行完成"
+                        is AutomationEngine.ExecutionState.Error -> "❌ 错误: ${state.message}"
+                        else -> "就绪"
+                    }
+                    lastStepText = stateText
+                    stepText?.text = stateText
+                    
+                    // 更新 DEBUG 模式状态文本
+                    statusText?.text = stateText
+                }
+                
+                is AutomationEngine.ExecutionState.Running -> {
+                    // 显示停止，隐藏开始和重新运行（EXECUTE 模式）
+                    btnStartExec?.visibility = View.GONE
+                    btnRerunExec?.visibility = View.GONE
+                    btnStop?.visibility = View.VISIBLE
+                    
+                    // DEBUG 模式也显示停止
+                    btnStart?.visibility = View.GONE
+                    btnRerun?.visibility = View.GONE
+                    btnStopDebug?.visibility = View.VISIBLE
+                }
+                
+                is AutomationEngine.ExecutionState.Paused -> {
+                    // 显示继续和停止，隐藏重新运行（EXECUTE 模式）
+                    btnStartExec?.visibility = View.VISIBLE
+                    btnRerunExec?.visibility = View.GONE
+                    btnStop?.visibility = View.VISIBLE
+                    
+                    // DEBUG 模式也显示继续和停止
+                    btnStart?.visibility = View.VISIBLE
+                    btnRerun?.visibility = View.GONE
+                    btnStopDebug?.visibility = View.VISIBLE
+                    
+                    // 设置按钮文本为"继续"
+                    btnStartExec?.text = "继续"
+                    btnStart?.text = "继续"
+                    btnStartExec?.setOnClickListener {
+                        ServiceBridge.getAutomationEngine()?.resumeExecution()
+                    }
+                    btnStart?.setOnClickListener {
+                        ServiceBridge.getAutomationEngine()?.resumeExecution()
+                    }
+                    
+                    // 更新状态文本
+                    lastStepText = "⏸️ 已暂停"
+                    stepText?.text = "⏸️ 已暂停"
+                    statusText?.text = "⏸️ 已暂停"
+                }
+            }
+        }
     }
 
     private fun updateTitleText(title: String) {
