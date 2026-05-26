@@ -30,6 +30,8 @@ class AutomationEngine @Inject constructor(
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private var executionJob: Job? = null
     private var currentScript: Script? = null
+    
+    fun getCurrentScript(): Script? = currentScript
 
     private val _executionState = MutableStateFlow<ExecutionState>(ExecutionState.Idle)
     val executionState: StateFlow<ExecutionState> = _executionState
@@ -74,7 +76,8 @@ class AutomationEngine @Inject constructor(
 
     fun openFloatingWindow(script: Script) {
         currentScript = script
-        FloatingWindowService.setCurrentScriptId(script.id)
+        FloatingWindowService.setCurrentScript(script)
+        FloatingWindowService.setCurrentActionIndex(-1)
         _executionState.value = ExecutionState.Idle
         _logs.value = emptyList()
         _currentActionIndex.value = -1
@@ -155,6 +158,7 @@ class AutomationEngine @Inject constructor(
         executionJob?.cancel()
         _executionState.value = ExecutionState.Idle
         _currentActionIndex.value = -1
+        FloatingWindowService.setCurrentActionIndex(-1)
         log("Script stopped", LogType.WARNING)
         FloatingWindowService.updateStep("⏹️ 已停止")
         // 不自动关闭悬浮窗，让用户自己关闭
@@ -182,6 +186,7 @@ class AutomationEngine @Inject constructor(
 
             val action = actions[index]
             _currentActionIndex.value = index
+            FloatingWindowService.setCurrentActionIndex(index)
 
             val actionName = when (action) {
                 is ScriptAction.Tap -> "Tap (${action.x}, ${action.y})"

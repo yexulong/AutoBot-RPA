@@ -15,9 +15,13 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.ImageView
+import android.widget.ProgressBar
 import android.widget.TextView
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.autobot.rpa.MainActivity
 import com.autobot.rpa.R
+import com.autobot.rpa.data.model.Script
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -46,6 +50,10 @@ class FloatingWindowService : Service() {
     private var stepText: TextView? = null
     private var titleText: TextView? = null
     private var dragHandle: View? = null
+    private var actionListDebug: RecyclerView? = null
+    private var actionList: RecyclerView? = null
+    private var actionListAdapterDebug: ActionListAdapter? = null
+    private var actionListAdapter: ActionListAdapter? = null
 
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var stateCollectionJob: Job? = null
@@ -53,7 +61,9 @@ class FloatingWindowService : Service() {
 
     private var currentMode = FloatingWindowMode.EXECUTION
     private val logList = mutableListOf<String>()
-    private var currentScriptId: Long = -1L
+    private var currentScriptId: Long = -1
+    private var currentScript: Script? = null
+    private var currentActionIndex: Int = -1
     private var lastStepText: String = "就绪"
 
     companion object {
@@ -128,6 +138,26 @@ class FloatingWindowService : Service() {
         fun getCurrentScriptId(): Long {
             return instance?.currentScriptId ?: -1L
         }
+
+        fun setCurrentScript(script: Script) {
+            instance?.currentScript = script
+            instance?.currentScriptId = script.id
+            instance?.updateActionList(script.actions)
+            instance?.updateCurrentActionIndex(-1)
+        }
+
+        fun getCurrentScript(): Script? {
+            return instance?.currentScript
+        }
+
+        fun setCurrentActionIndex(index: Int) {
+            instance?.currentActionIndex = index
+            instance?.updateCurrentActionIndex(index)
+        }
+
+        fun getCurrentActionIndex(): Int {
+            return instance?.currentActionIndex ?: -1
+        }
     }
 
     override fun onCreate() {
@@ -183,6 +213,22 @@ class FloatingWindowService : Service() {
         stepText = overlayView?.findViewById(R.id.step_text)
         titleText = overlayView?.findViewById(R.id.title_text)
         dragHandle = overlayView?.findViewById(R.id.drag_handle)
+        actionListDebug = overlayView?.findViewById(R.id.action_list_debug)
+        actionList = overlayView?.findViewById(R.id.action_list)
+
+        // 初始化 DEBUG 模式的 RecyclerView 和 Adapter
+        actionListAdapterDebug = ActionListAdapter()
+        actionListDebug?.apply {
+            layoutManager = LinearLayoutManager(this@FloatingWindowService)
+            adapter = actionListAdapterDebug
+        }
+
+        // 初始化 EXECUTE 模式的 RecyclerView 和 Adapter - 只显示当前动作
+        actionListAdapter = ActionListAdapter(showOnlyCurrentAction = true)
+        actionList?.apply {
+            layoutManager = LinearLayoutManager(this@FloatingWindowService)
+            adapter = actionListAdapter
+        }
 
         setupDragListener()
 
@@ -216,8 +262,11 @@ class FloatingWindowService : Service() {
             launchMainActivity()
         }
 
+        // 将 220dp 转换为像素
+        val widthInPixels = (220 * resources.displayMetrics.density).toInt()
+        
         val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
+            widthInPixels,
             WindowManager.LayoutParams.WRAP_CONTENT,
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -241,14 +290,33 @@ class FloatingWindowService : Service() {
         
         // 开始监听执行状态
         startStateCollection()
+        
+        // 初始化UI：尝试从AutomationEngine获取当前状态
+        ServiceBridge.getAutomationEngine()?.let { engine ->
+            // 获取当前脚本
+            val script = engine.getCurrentScript()
+            if (script != null) {
+                currentScript = script
+                updateActionList(script.actions)
+                updateCurrentActionIndex(engine.currentActionIndex.value)
+            }
+        }
     }
     
     private fun startStateCollection() {
         stateCollectionJob?.cancel()
         stateCollectionJob = scope.launch {
             ServiceBridge.getAutomationEngine()?.let { engine ->
-                engine.executionState.collectLatest { state ->
-                    updateUiForState(state)
+                // 同时监听两个 Flow
+                launch {
+                    engine.executionState.collectLatest { state ->
+                        updateUiForState(state)
+                    }
+                }
+                launch {
+                    engine.currentActionIndex.collectLatest { index ->
+                        setCurrentActionIndex(index)
+                    }
                 }
             }
         }
@@ -256,6 +324,7 @@ class FloatingWindowService : Service() {
         // 初始化 UI 为当前状态
         ServiceBridge.getAutomationEngine()?.let { engine ->
             updateUiForState(engine.executionState.value)
+            setCurrentActionIndex(engine.currentActionIndex.value)
         }
     }
     
@@ -288,7 +357,13 @@ class FloatingWindowService : Service() {
                     // 更新状态文本（EXECUTE 模式）
                     val stateText = when (state) {
                         is AutomationEngine.ExecutionState.Idle -> "就绪"
-                        is AutomationEngine.ExecutionState.Completed -> "✅ 执行完成"
+                        is AutomationEngine.ExecutionState.Completed -> {
+                            // 完成时设置所有动作都已完成
+                            currentScript?.actions?.size?.let { total ->
+                                updateCurrentActionIndex(total)
+                            }
+                            "✅ 执行完成"
+                        }
                         is AutomationEngine.ExecutionState.Error -> "❌ 错误: ${state.message}"
                         else -> "就绪"
                     }
@@ -443,6 +518,20 @@ class FloatingWindowService : Service() {
             logList.removeAt(logList.size - 1)
         }
         updateStatusText(logList.joinToString("\n"))
+    }
+
+    private fun updateActionList(actions: List<com.autobot.rpa.data.model.ScriptAction>) {
+        runOnMainThread {
+            actionListAdapter?.updateActions(actions)
+            actionListAdapterDebug?.updateActions(actions)
+        }
+    }
+    
+    private fun updateCurrentActionIndex(index: Int) {
+        runOnMainThread {
+            actionListAdapter?.setCurrentActionIndex(index)
+            actionListAdapterDebug?.setCurrentActionIndex(index)
+        }
     }
 
     private fun runOnMainThread(action: () -> Unit) {

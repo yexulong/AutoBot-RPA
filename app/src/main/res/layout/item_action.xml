@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:id="@+id/item_root">
+
+    <!-- 背景进度条（作为底层背景） -->
+    <View
+        android:id="@+id/progress_background"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#4CAF50"
+        android:scaleX="0"
+        android:pivotX="0"
+        android:alpha="0.3" />
+
+    <!-- 动作内容 -->
+    <LinearLayout
+        android:id="@+id/content_layout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="8dp"
+        android:gravity="center_vertical"
+        android:background="@drawable/item_action_background">
+
+        <TextView
+            android:id="@+id/tv_action_index"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:gravity="center"
+            android:textSize="12sp"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/index_circle_background"
+            android:text="1" />
+
+        <ImageView
+            android:id="@+id/iv_action_icon"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_marginStart="10dp"
+            android:src="@android:drawable/ic_menu_myplaces"
+            android:contentDescription="Action icon" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:layout_marginStart="10dp">
+
+            <TextView
+                android:id="@+id/tv_action_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:textColor="#FFFFFF"
+                android:textStyle="bold"
+                android:text="Tap" />
+
+            <TextView
+                android:id="@+id/tv_action_description"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="11sp"
+                android:textColor="#BBFFFFFF"
+                android:layout_marginTop="2dp"
+                android:text="Position: (100, 200)" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</FrameLayout>

@@ -1,27 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:background="@drawable/overlay_card_background"
-    android:elevation="16dp">
+    android:elevation="16dp"
+    android:maxWidth="220dp">
 
     <LinearLayout
         android:id="@+id/drag_handle"
         android:layout_width="match_parent"
-        android:layout_height="36dp"
+        android:layout_height="30dp"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:paddingStart="12dp"
-        android:paddingEnd="8dp"
+        android:paddingStart="8dp"
+        android:paddingEnd="6dp"
         android:clickable="true"
         android:focusable="true">
 
         <View
-            android:layout_width="4dp"
-            android:layout_height="20dp"
+            android:layout_width="3dp"
+            android:layout_height="16dp"
             android:background="#2196F3"
-            android:layout_marginEnd="10dp" />
+            android:layout_marginEnd="8dp" />
 
         <TextView
             android:id="@+id/title_text"
@@ -30,16 +32,16 @@
             android:layout_weight="1"
             android:text="AutoBot"
             android:textColor="#FFFFFF"
-            android:textSize="16sp"
+            android:textSize="13sp"
             android:textStyle="bold" />
 
         <ImageView
             android:id="@+id/btn_close"
-            android:layout_width="32dp"
-            android:layout_height="32dp"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
             android:src="@android:drawable/ic_menu_close_clear_cancel"
             android:contentDescription="关闭"
-            android:padding="6dp" />
+            android:padding="5dp" />
     </LinearLayout>
 
     <View
@@ -47,23 +49,35 @@
         android:layout_height="1dp"
         android:background="#33FFFFFF" />
 
+    <!-- DEBUG模式容器 -->
     <LinearLayout
         android:id="@+id/debug_container"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="12dp">
+        android:padding="8dp">
 
+        <!-- 动作列表 -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/action_list_debug"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:maxHeight="180dp"
+            android:padding="2dp"
+            android:clipToPadding="false"
+            android:layout_marginBottom="6dp" />
+
+        <!-- 日志文本（隐藏，保留代码兼容性） -->
         <TextView
             android:id="@+id/status_text"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:visibility="gone"
             android:text="就绪"
             android:textColor="#FFFFFF"
-            android:textSize="13sp"
-            android:maxLines="5"
-            android:layout_marginBottom="8dp" />
+            android:textSize="12sp" />
 
+        <!-- 按钮组 -->
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -71,32 +85,32 @@
 
             <Button
                 android:id="@+id/btn_start"
-                android:layout_width="80dp"
-                android:layout_height="40dp"
+                android:layout_width="64dp"
+                android:layout_height="32dp"
                 android:text="开始"
-                android:textSize="13sp"
+                android:textSize="11sp"
                 android:textColor="#FFFFFF"
                 android:background="@drawable/btn_confirm_background"
-                android:layout_marginEnd="8dp"
+                android:layout_marginEnd="6dp"
                 android:stateListAnimator="@null" />
 
             <Button
                 android:id="@+id/btn_rerun"
-                android:layout_width="80dp"
-                android:layout_height="40dp"
-                android:text="重新运行"
-                android:textSize="13sp"
+                android:layout_width="64dp"
+                android:layout_height="32dp"
+                android:text="重跑"
+                android:textSize="11sp"
                 android:textColor="#FFFFFF"
                 android:background="@drawable/btn_confirm_background"
-                android:layout_marginEnd="8dp"
+                android:layout_marginEnd="6dp"
                 android:stateListAnimator="@null" />
 
             <Button
                 android:id="@+id/btn_stop_debug"
                 android:layout_width="wrap_content"
-                android:layout_height="40dp"
+                android:layout_height="32dp"
                 android:text="停止"
-                android:textSize="14sp"
+                android:textSize="12sp"
                 android:textColor="#FFFFFF"
                 android:background="@drawable/btn_cancel_background"
                 android:stateListAnimator="@null"
@@ -106,23 +120,36 @@
 
     </LinearLayout>
 
+    <!-- EXECUTE模式容器 -->
     <LinearLayout
         android:id="@+id/execution_container"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="12dp"
+        android:padding="8dp"
         android:visibility="gone">
 
+        <!-- 动作列表 -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/action_list"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:maxHeight="180dp"
+            android:padding="2dp"
+            android:clipToPadding="false"
+            android:layout_marginBottom="6dp" />
+
+        <!-- 当前步骤文本（隐藏，保留代码兼容性） -->
         <TextView
             android:id="@+id/step_text"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:visibility="gone"
             android:text="就绪"
             android:textColor="#FFFFFF"
-            android:textSize="14sp"
-            android:layout_marginBottom="8dp" />
+            android:textSize="12sp" />
 
+        <!-- 按钮组 -->
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -130,32 +157,32 @@
 
             <Button
                 android:id="@+id/btn_start_exec"
-                android:layout_width="80dp"
-                android:layout_height="40dp"
+                android:layout_width="64dp"
+                android:layout_height="32dp"
                 android:text="开始"
-                android:textSize="13sp"
+                android:textSize="11sp"
                 android:textColor="#FFFFFF"
                 android:background="@drawable/btn_confirm_background"
-                android:layout_marginEnd="8dp"
+                android:layout_marginEnd="6dp"
                 android:stateListAnimator="@null" />
 
             <Button
                 android:id="@+id/btn_rerun_exec"
-                android:layout_width="80dp"
-                android:layout_height="40dp"
-                android:text="重新运行"
-                android:textSize="13sp"
+                android:layout_width="64dp"
+                android:layout_height="32dp"
+                android:text="重跑"
+                android:textSize="11sp"
                 android:textColor="#FFFFFF"
                 android:background="@drawable/btn_confirm_background"
-                android:layout_marginEnd="8dp"
+                android:layout_marginEnd="6dp"
                 android:stateListAnimator="@null" />
 
             <Button
                 android:id="@+id/btn_stop"
                 android:layout_width="wrap_content"
-                android:layout_height="40dp"
+                android:layout_height="32dp"
                 android:text="停止"
-                android:textSize="14sp"
+                android:textSize="12sp"
                 android:textColor="#FFFFFF"
                 android:background="@drawable/btn_cancel_background"
                 android:stateListAnimator="@null" />
