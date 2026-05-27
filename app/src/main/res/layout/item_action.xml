@@ -2,17 +2,18 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:id="@+id/item_root">
+    android:id="@+id/item_root"
+    android:background="@drawable/item_root_background">
 
     <!-- 背景进度条（作为底层背景） -->
     <View
         android:id="@+id/progress_background"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="#4CAF50"
+        android:background="@drawable/item_progress_background"
         android:scaleX="0"
         android:pivotX="0"
-        android:alpha="0.3" />
+        android:alpha="0.5" />
 
     <!-- 动作内容 -->
     <LinearLayout

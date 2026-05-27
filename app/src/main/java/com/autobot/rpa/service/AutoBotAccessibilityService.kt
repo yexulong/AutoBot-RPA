@@ -166,6 +166,24 @@ class AutoBotAccessibilityService : AccessibilityService() {
                     performGlobalAction(GLOBAL_ACTION_POWER_DIALOG)
                     return true
                 }
+                KeyEvent.KEYCODE_VOLUME_UP -> {
+                    val audioManager = getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+                    audioManager.adjustStreamVolume(
+                        android.media.AudioManager.STREAM_MUSIC,
+                        android.media.AudioManager.ADJUST_RAISE,
+                        android.media.AudioManager.FLAG_SHOW_UI
+                    )
+                    return true
+                }
+                KeyEvent.KEYCODE_VOLUME_DOWN -> {
+                    val audioManager = getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+                    audioManager.adjustStreamVolume(
+                        android.media.AudioManager.STREAM_MUSIC,
+                        android.media.AudioManager.ADJUST_LOWER,
+                        android.media.AudioManager.FLAG_SHOW_UI
+                    )
+                    return true
+                }
             }
             
             // 对于其他按键，暂时不支持（需要更高权限）

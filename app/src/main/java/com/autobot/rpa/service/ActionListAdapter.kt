@@ -122,7 +122,7 @@ class ActionListAdapter(
     private fun getActionInfo(action: ScriptAction): Triple<Int, String, String> {
         return when (action) {
             is ScriptAction.Tap -> Triple(
-                android.R.drawable.ic_menu_call,
+                android.R.drawable.ic_menu_mylocation,
                 "Tap",
                 "Position: (${action.x}, ${action.y})"
             )
