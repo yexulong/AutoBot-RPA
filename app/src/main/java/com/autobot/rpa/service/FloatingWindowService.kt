@@ -39,21 +39,18 @@ class FloatingWindowService : Service() {
     private var debugContainer: View? = null
     private var executionContainer: View? = null
     private var btnStart: Button? = null
-    private var btnStartExec: Button? = null
     private var btnRerun: Button? = null
-    private var btnRerunExec: Button? = null
-    private var btnStop: Button? = null
     private var btnStopDebug: Button? = null
     private var btnDebug: Button? = null
     private var btnClose: ImageView? = null
+    private var btnCloseExec: ImageView? = null
+    private var ivExecControl: ImageView? = null
     private var statusText: TextView? = null
     private var stepText: TextView? = null
     private var titleText: TextView? = null
     private var dragHandle: View? = null
     private var actionListDebug: RecyclerView? = null
-    private var actionList: RecyclerView? = null
     private var actionListAdapterDebug: ActionListAdapter? = null
-    private var actionListAdapter: ActionListAdapter? = null
 
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var stateCollectionJob: Job? = null
@@ -203,18 +200,16 @@ class FloatingWindowService : Service() {
         debugContainer = overlayView?.findViewById(R.id.debug_container)
         executionContainer = overlayView?.findViewById(R.id.execution_container)
         btnRerun = overlayView?.findViewById(R.id.btn_rerun)
-        btnRerunExec = overlayView?.findViewById(R.id.btn_rerun_exec)
         btnStart = overlayView?.findViewById(R.id.btn_start)
-        btnStartExec = overlayView?.findViewById(R.id.btn_start_exec)
-        btnStop = overlayView?.findViewById(R.id.btn_stop)
         btnStopDebug = overlayView?.findViewById(R.id.btn_stop_debug)
         btnClose = overlayView?.findViewById(R.id.btn_close)
+        btnCloseExec = overlayView?.findViewById(R.id.btn_close_exec)
+        ivExecControl = overlayView?.findViewById(R.id.iv_exec_control)
         statusText = overlayView?.findViewById(R.id.status_text)
         stepText = overlayView?.findViewById(R.id.step_text)
         titleText = overlayView?.findViewById(R.id.title_text)
         dragHandle = overlayView?.findViewById(R.id.drag_handle)
         actionListDebug = overlayView?.findViewById(R.id.action_list_debug)
-        actionList = overlayView?.findViewById(R.id.action_list)
 
         // 初始化 DEBUG 模式的 RecyclerView 和 Adapter
         actionListAdapterDebug = ActionListAdapter()
@@ -223,50 +218,48 @@ class FloatingWindowService : Service() {
             adapter = actionListAdapterDebug
         }
 
-        // 初始化 EXECUTE 模式的 RecyclerView 和 Adapter - 只显示当前动作
-        actionListAdapter = ActionListAdapter(showOnlyCurrentAction = true)
-        actionList?.apply {
-            layoutManager = LinearLayoutManager(this@FloatingWindowService)
-            adapter = actionListAdapter
-        }
-
+        // 为 EXECUTE 模式设置拖拽监听器 - 整个容器都可拖动
         setupDragListener()
 
-        // 开始按钮监听器
-        val startListener = android.view.View.OnClickListener {
+        // DEBUG 模式的开始按钮监听器
+        btnStart?.setOnClickListener {
             ServiceBridge.startExecution()
         }
-        btnStart?.setOnClickListener(startListener)
-        btnStartExec?.setOnClickListener(startListener)
 
-        // 重新运行按钮监听器
-        val rerunListener = android.view.View.OnClickListener {
+        // DEBUG 模式的重新运行按钮监听器
+        btnRerun?.setOnClickListener {
             ServiceBridge.rerunCurrentScript()
         }
-        btnRerun?.setOnClickListener(rerunListener)
-        btnRerunExec?.setOnClickListener(rerunListener)
 
-        // 停止按钮监听器
-        val stopListener = android.view.View.OnClickListener {
+        // DEBUG 模式的停止按钮监听器
+        btnStopDebug?.setOnClickListener {
             ServiceBridge.stopExecution()
         }
-        btnStop?.setOnClickListener(stopListener)
-        btnStopDebug?.setOnClickListener(stopListener)
 
-        btnClose?.setOnClickListener {
+        // 关闭按钮监听器
+        val closeListener = android.view.View.OnClickListener {
             onFloatingWindowActionListener?.onClose()
             stopSelf()
         }
+        btnClose?.setOnClickListener(closeListener)
+        btnCloseExec?.setOnClickListener(closeListener)
 
+        // 执行控制图标监听器
+        setupExecControlListener()
+
+        // DEBUG模式标题栏点击返回主界面
         dragHandle?.setOnClickListener {
             launchMainActivity()
         }
 
-        // 将 220dp 转换为像素
-        val widthInPixels = (220 * resources.displayMetrics.density).toInt()
-        
+        // EXECUTE模式步骤文本点击返回主界面
+        stepText?.setOnClickListener {
+            launchMainActivity()
+        }
+
+        // 窗口参数 - 自适应宽度
         val params = WindowManager.LayoutParams(
-            widthInPixels,
+            WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -334,27 +327,25 @@ class FloatingWindowService : Service() {
                 is AutomationEngine.ExecutionState.Idle,
                 is AutomationEngine.ExecutionState.Completed,
                 is AutomationEngine.ExecutionState.Error -> {
-                    // 显示开始和重新运行，隐藏停止（EXECUTE 模式）
-                    btnStartExec?.visibility = View.VISIBLE
-                    btnRerunExec?.visibility = View.VISIBLE
-                    btnStop?.visibility = View.GONE
+                    // 更新执行控制图标（EXECUTE 模式）
+                    if (state is AutomationEngine.ExecutionState.Completed || state is AutomationEngine.ExecutionState.Error) {
+                        ivExecControl?.setImageResource(android.R.drawable.ic_popup_sync)
+                    } else {
+                        ivExecControl?.setImageResource(android.R.drawable.ic_media_play)
+                    }
                     
                     // DEBUG 模式也更新按钮
                     btnStart?.visibility = View.VISIBLE
                     btnRerun?.visibility = View.VISIBLE
                     btnStopDebug?.visibility = View.GONE
                     
-                    // 设置按钮文本为"开始"
-                    btnStartExec?.text = "开始"
+                    // 设置 DEBUG 模式按钮文本为"开始"
                     btnStart?.text = "开始"
-                    btnStartExec?.setOnClickListener {
-                        ServiceBridge.startExecution()
-                    }
                     btnStart?.setOnClickListener {
                         ServiceBridge.startExecution()
                     }
                     
-                    // 更新状态文本（EXECUTE 模式）
+                    // 更新状态文本
                     val stateText = when (state) {
                         is AutomationEngine.ExecutionState.Idle -> "就绪"
                         is AutomationEngine.ExecutionState.Completed -> {
@@ -375,10 +366,8 @@ class FloatingWindowService : Service() {
                 }
                 
                 is AutomationEngine.ExecutionState.Running -> {
-                    // 显示停止，隐藏开始和重新运行（EXECUTE 模式）
-                    btnStartExec?.visibility = View.GONE
-                    btnRerunExec?.visibility = View.GONE
-                    btnStop?.visibility = View.VISIBLE
+                    // 更新执行控制图标为停止（EXECUTE 模式）
+                    ivExecControl?.setImageResource(android.R.drawable.ic_media_pause)
                     
                     // DEBUG 模式也显示停止
                     btnStart?.visibility = View.GONE
@@ -387,22 +376,16 @@ class FloatingWindowService : Service() {
                 }
                 
                 is AutomationEngine.ExecutionState.Paused -> {
-                    // 显示继续和停止，隐藏重新运行（EXECUTE 模式）
-                    btnStartExec?.visibility = View.VISIBLE
-                    btnRerunExec?.visibility = View.GONE
-                    btnStop?.visibility = View.VISIBLE
+                    // 更新执行控制图标为继续（EXECUTE 模式）
+                    ivExecControl?.setImageResource(android.R.drawable.ic_media_play)
                     
                     // DEBUG 模式也显示继续和停止
                     btnStart?.visibility = View.VISIBLE
                     btnRerun?.visibility = View.GONE
                     btnStopDebug?.visibility = View.VISIBLE
                     
-                    // 设置按钮文本为"继续"
-                    btnStartExec?.text = "继续"
+                    // 设置 DEBUG 模式按钮文本为"继续"
                     btnStart?.text = "继续"
-                    btnStartExec?.setOnClickListener {
-                        ServiceBridge.getAutomationEngine()?.resumeExecution()
-                    }
                     btnStart?.setOnClickListener {
                         ServiceBridge.getAutomationEngine()?.resumeExecution()
                     }
@@ -411,6 +394,28 @@ class FloatingWindowService : Service() {
                     lastStepText = "⏸️ 已暂停"
                     stepText?.text = "⏸️ 已暂停"
                     statusText?.text = "⏸️ 已暂停"
+                }
+            }
+        }
+    }
+    
+    private fun setupExecControlListener() {
+        ivExecControl?.setOnClickListener {
+            ServiceBridge.getAutomationEngine()?.let { engine ->
+                when (engine.executionState.value) {
+                    is AutomationEngine.ExecutionState.Idle -> {
+                        ServiceBridge.startExecution()
+                    }
+                    is AutomationEngine.ExecutionState.Running -> {
+                        ServiceBridge.stopExecution()
+                    }
+                    is AutomationEngine.ExecutionState.Paused -> {
+                        engine.resumeExecution()
+                    }
+                    is AutomationEngine.ExecutionState.Completed,
+                    is AutomationEngine.ExecutionState.Error -> {
+                        ServiceBridge.rerunCurrentScript()
+                    }
                 }
             }
         }
@@ -430,7 +435,8 @@ class FloatingWindowService : Service() {
     }
 
     private fun setupDragListener() {
-        dragHandle?.setOnTouchListener(object : View.OnTouchListener {
+        // 拖拽监听器
+        val dragTouchListener = object : View.OnTouchListener {
             private var initialX = 0
             private var initialY = 0
             private var initialTouchX = 0f
@@ -471,7 +477,13 @@ class FloatingWindowService : Service() {
                 }
                 return false
             }
-        })
+        }
+        
+        // 为 DEBUG 模式的标题栏设置拖拽监听器
+        dragHandle?.setOnTouchListener(dragTouchListener)
+        
+        // 为 EXECUTE 模式的整个容器设置拖拽监听器
+        executionContainer?.setOnTouchListener(dragTouchListener)
     }
 
     private fun launchMainActivity() {
@@ -522,14 +534,12 @@ class FloatingWindowService : Service() {
 
     private fun updateActionList(actions: List<com.autobot.rpa.data.model.ScriptAction>) {
         runOnMainThread {
-            actionListAdapter?.updateActions(actions)
             actionListAdapterDebug?.updateActions(actions)
         }
     }
     
     private fun updateCurrentActionIndex(index: Int) {
         runOnMainThread {
-            actionListAdapter?.setCurrentActionIndex(index)
             actionListAdapterDebug?.setCurrentActionIndex(index)
         }
     }

@@ -5,57 +5,58 @@
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:background="@drawable/overlay_card_background"
-    android:elevation="16dp"
-    android:maxWidth="220dp">
+    android:elevation="16dp">
 
-    <LinearLayout
-        android:id="@+id/drag_handle"
-        android:layout_width="match_parent"
-        android:layout_height="30dp"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:paddingStart="8dp"
-        android:paddingEnd="6dp"
-        android:clickable="true"
-        android:focusable="true">
-
-        <View
-            android:layout_width="3dp"
-            android:layout_height="16dp"
-            android:background="#2196F3"
-            android:layout_marginEnd="8dp" />
-
-        <TextView
-            android:id="@+id/title_text"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="AutoBot"
-            android:textColor="#FFFFFF"
-            android:textSize="13sp"
-            android:textStyle="bold" />
-
-        <ImageView
-            android:id="@+id/btn_close"
-            android:layout_width="28dp"
-            android:layout_height="28dp"
-            android:src="@android:drawable/ic_menu_close_clear_cancel"
-            android:contentDescription="关闭"
-            android:padding="5dp" />
-    </LinearLayout>
-
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="#33FFFFFF" />
-
-    <!-- DEBUG模式容器 -->
+    <!-- DEBUG模式容器 - 保留原有完整界面 -->
     <LinearLayout
         android:id="@+id/debug_container"
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="8dp">
+        android:minWidth="220dp"
+        android:visibility="gone">
+
+        <!-- Debug 标题栏 -->
+        <LinearLayout
+            android:id="@+id/drag_handle"
+            android:layout_width="match_parent"
+            android:layout_height="30dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="8dp"
+            android:paddingEnd="6dp"
+            android:clickable="true"
+            android:focusable="true">
+
+            <View
+                android:layout_width="3dp"
+                android:layout_height="16dp"
+                android:background="#2196F3"
+                android:layout_marginEnd="8dp" />
+
+            <TextView
+                android:id="@+id/title_text"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="AutoBot"
+                android:textColor="#FFFFFF"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <ImageView
+                android:id="@+id/btn_close"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:src="@android:drawable/ic_menu_close_clear_cancel"
+                android:contentDescription="关闭"
+                android:padding="5dp" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#33FFFFFF" />
 
         <!-- 动作列表 -->
         <androidx.recyclerview.widget.RecyclerView
@@ -63,9 +64,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:maxHeight="180dp"
-            android:padding="2dp"
-            android:clipToPadding="false"
-            android:layout_marginBottom="6dp" />
+            android:padding="8dp"
+            android:clipToPadding="false" />
 
         <!-- 日志文本（隐藏，保留代码兼容性） -->
         <TextView
@@ -81,7 +81,8 @@
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="horizontal">
+            android:orientation="horizontal"
+            android:padding="8dp">
 
             <Button
                 android:id="@+id/btn_start"
@@ -120,74 +121,56 @@
 
     </LinearLayout>
 
-    <!-- EXECUTE模式容器 -->
+    <!-- EXECUTE模式容器 - 简化版 -->
     <LinearLayout
         android:id="@+id/execution_container"
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
         android:padding="8dp"
         android:visibility="gone">
 
-        <!-- 动作列表 -->
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/action_list"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:maxHeight="180dp"
-            android:padding="2dp"
-            android:clipToPadding="false"
-            android:layout_marginBottom="6dp" />
+        <!-- 执行控制图标 -->
+        <ImageView
+            android:id="@+id/iv_exec_control"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:src="@android:drawable/ic_media_play"
+            android:contentDescription="执行控制"
+            android:padding="4dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:focusable="true" />
 
-        <!-- 当前步骤文本（隐藏，保留代码兼容性） -->
+        <!-- 当前步骤文本 -->
         <TextView
             android:id="@+id/step_text"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:visibility="gone"
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="8dp"
             android:text="就绪"
             android:textColor="#FFFFFF"
-            android:textSize="12sp" />
+            android:textSize="12sp"
+            android:maxWidth="120dp"
+            android:ellipsize="end"
+            android:singleLine="true"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?android:attr/selectableItemBackgroundBorderless" />
 
-        <!-- 按钮组 -->
-        <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-
-            <Button
-                android:id="@+id/btn_start_exec"
-                android:layout_width="64dp"
-                android:layout_height="32dp"
-                android:text="开始"
-                android:textSize="11sp"
-                android:textColor="#FFFFFF"
-                android:background="@drawable/btn_confirm_background"
-                android:layout_marginEnd="6dp"
-                android:stateListAnimator="@null" />
-
-            <Button
-                android:id="@+id/btn_rerun_exec"
-                android:layout_width="64dp"
-                android:layout_height="32dp"
-                android:text="重跑"
-                android:textSize="11sp"
-                android:textColor="#FFFFFF"
-                android:background="@drawable/btn_confirm_background"
-                android:layout_marginEnd="6dp"
-                android:stateListAnimator="@null" />
-
-            <Button
-                android:id="@+id/btn_stop"
-                android:layout_width="wrap_content"
-                android:layout_height="32dp"
-                android:text="停止"
-                android:textSize="12sp"
-                android:textColor="#FFFFFF"
-                android:background="@drawable/btn_cancel_background"
-                android:stateListAnimator="@null" />
-
-        </LinearLayout>
+        <!-- 关闭按钮 -->
+        <ImageView
+            android:id="@+id/btn_close_exec"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:src="@android:drawable/ic_menu_close_clear_cancel"
+            android:contentDescription="关闭"
+            android:padding="5dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:focusable="true" />
 
     </LinearLayout>
 
