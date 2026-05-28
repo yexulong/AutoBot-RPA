@@ -327,6 +327,7 @@ fun EditActionDialog(
         is ScriptAction.LoopEnd -> EditLoopEndDialog(action, onDismiss, onSave)
         is ScriptAction.Condition -> EditConditionDialog(action, onDismiss, onSave)
         is ScriptAction.Comment -> EditCommentDialog(action, onDismiss, onSave)
+        is ScriptAction.SetVariable -> EditSetVariableDialog(action, onDismiss, onSave)
         else -> {}
     }
 }
@@ -730,23 +731,36 @@ fun EditTextInputDialog(
     onDismiss: () -> Unit,
     onSave: (ScriptAction.TextInput) -> Unit
 ) {
-    var text by remember { mutableStateOf(action.text) }
+    var text by remember { mutableStateOf(action.textStr ?: action.text) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Edit Text Input") },
         text = {
-            OutlinedTextField(
-                value = text,
-                onValueChange = { text = it },
-                label = { Text("Text") },
-                modifier = Modifier.fillMaxWidth()
-            )
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    label = { Text("Text (可以使用变量，如: \${varName})") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    text = "提示：可以直接输入文本，也可以使用变量引用",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         },
         confirmButton = {
             TextButton(
                 onClick = {
-                    onSave(action.copy(text = text))
+                    val newTextStr = if (text.toIntOrNull() == null || action.textStr != null) text else null
+                    val newText = text.toIntOrNull()?.toString() ?: text
+                    onSave(action.copy(text = newText, textStr = newTextStr))
                 }
             ) {
                 Text("Save")
@@ -766,7 +780,7 @@ fun EditKeyPressDialog(
     onDismiss: () -> Unit,
     onSave: (ScriptAction.KeyPress) -> Unit
 ) {
-    var keyCode by remember { mutableStateOf(action.keyCode.toString()) }
+    var keyCode by remember { mutableStateOf(action.keyCodeStr ?: action.keyCode.toString()) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -778,13 +792,13 @@ fun EditKeyPressDialog(
                 OutlinedTextField(
                     value = keyCode,
                     onValueChange = { keyCode = it },
-                    label = { Text("Key Code") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    label = { Text("Key Code (可以使用变量，如: \${varName})") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
                 Text(
-                    text = "Key codes: 4=Back, 3=Home, 66=Enter, 24=Vol+, 25=Vol-\nNote: System keys (Home, Power) require special accessibility permissions.",
+                    text = "Key codes: 4=Back, 3=Home, 66=Enter, 24=Vol+, 25=Vol-\n提示：可以直接输入键码数字，也可以使用变量引用",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -793,8 +807,9 @@ fun EditKeyPressDialog(
         confirmButton = {
             TextButton(
                 onClick = {
+                    val newKeyCodeStr = if (keyCode.toIntOrNull() == null || action.keyCodeStr != null) keyCode else null
                     val newKeyCode = keyCode.toIntOrNull() ?: action.keyCode
-                    onSave(action.copy(keyCode = newKeyCode))
+                    onSave(action.copy(keyCode = newKeyCode, keyCodeStr = newKeyCodeStr))
                 }
             ) {
                 Text("Save")
@@ -814,26 +829,36 @@ fun EditDelayDialog(
     onDismiss: () -> Unit,
     onSave: (ScriptAction.Delay) -> Unit
 ) {
-    var milliseconds by remember { mutableStateOf(action.milliseconds.toString()) }
+    var milliseconds by remember { mutableStateOf(action.millisecondsStr ?: action.milliseconds.toString()) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Edit Delay") },
         text = {
-            OutlinedTextField(
-                value = milliseconds,
-                onValueChange = { milliseconds = it },
-                label = { Text("Milliseconds") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(
+                    value = milliseconds,
+                    onValueChange = { milliseconds = it },
+                    label = { Text("Milliseconds (可以使用变量，如: \${varName})") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    text = "提示：可以直接输入毫秒数，也可以使用变量引用",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         },
         confirmButton = {
             TextButton(
                 onClick = {
+                    val newMsStr = if (milliseconds.toIntOrNull() == null || action.millisecondsStr != null) milliseconds else null
                     val newMs = milliseconds.toIntOrNull() ?: action.milliseconds
-                    onSave(action.copy(milliseconds = newMs))
+                    onSave(action.copy(milliseconds = newMs, millisecondsStr = newMsStr))
                 }
             ) {
                 Text("Save")
@@ -853,24 +878,35 @@ fun EditScreenshotDialog(
     onDismiss: () -> Unit,
     onSave: (ScriptAction.Screenshot) -> Unit
 ) {
-    var fileName by remember { mutableStateOf(action.fileName) }
+    var fileName by remember { mutableStateOf(action.fileNameStr ?: action.fileName) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Edit Screenshot") },
         text = {
-            OutlinedTextField(
-                value = fileName,
-                onValueChange = { fileName = it },
-                label = { Text("File Name") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(
+                    value = fileName,
+                    onValueChange = { fileName = it },
+                    label = { Text("File Name (可以使用变量，如: \${varName})") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    text = "提示：可以直接输入文件名，也可以使用变量引用",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         },
         confirmButton = {
             TextButton(
                 onClick = {
-                    onSave(action.copy(fileName = fileName))
+                    val newFileNameStr = if (fileName.toIntOrNull() == null || action.fileNameStr != null) fileName else null
+                    val newFileName = fileName
+                    onSave(action.copy(fileName = newFileName, fileNameStr = newFileNameStr))
                 }
             ) {
                 Text("Save")
@@ -1944,23 +1980,90 @@ fun EditCommentDialog(
     onDismiss: () -> Unit,
     onSave: (ScriptAction.Comment) -> Unit
 ) {
-    var text by remember { mutableStateOf(action.text) }
+    var text by remember { mutableStateOf(action.textStr ?: action.text) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Edit Comment") },
         text = {
-            OutlinedTextField(
-                value = text,
-                onValueChange = { text = it },
-                label = { Text("Comment") },
-                modifier = Modifier.fillMaxWidth()
-            )
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    label = { Text("Comment (可以使用变量，如: \${varName})") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    text = "提示：可以直接输入评论，也可以使用变量引用",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         },
         confirmButton = {
             TextButton(
                 onClick = {
-                    onSave(action.copy(text = text))
+                    val newTextStr = if (text.toIntOrNull() == null || action.textStr != null) text else null
+                    val newText = text.toIntOrNull()?.toString() ?: text
+                    onSave(action.copy(text = newText, textStr = newTextStr))
+                }
+            ) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
+fun EditSetVariableDialog(
+    action: ScriptAction.SetVariable,
+    onDismiss: () -> Unit,
+    onSave: (ScriptAction.SetVariable) -> Unit
+) {
+    var varName by remember { mutableStateOf(action.varName) }
+    var varValue by remember { mutableStateOf(action.varValue) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Set Variable") },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(
+                    value = varName,
+                    onValueChange = { varName = it },
+                    label = { Text("Variable Name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = varValue,
+                    onValueChange = { varValue = it },
+                    label = { Text("Variable Value (可以使用变量，如: \${otherVar})") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    text = "提示：变量名是要设置的变量的名称，值可以是文本或对其他变量的引用",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onSave(action.copy(varName = varName, varValue = varValue))
                 }
             ) {
                 Text("Save")
@@ -1992,6 +2095,7 @@ fun AddActionDialog(
         Triple("Loop Start", Icons.Default.Loop, "Start a loop"),
         Triple("Loop End", Icons.Default.Loop, "End a loop"),
         Triple("Condition", Icons.Default.CallSplit, "Conditional branch"),
+        Triple("Set Variable", Icons.Default.Edit, "Set a variable value"),
         Triple("Comment", Icons.Default.Comment, "Add a comment")
     )
 
@@ -2034,6 +2138,7 @@ fun AddActionDialog(
                                 "Loop Start" -> ScriptAction.LoopStart(id = java.util.UUID.randomUUID().toString(), order = 0, times = 3)
                                 "Loop End" -> ScriptAction.LoopEnd(id = java.util.UUID.randomUUID().toString(), order = 0)
                                 "Condition" -> ScriptAction.Condition(id = java.util.UUID.randomUUID().toString(), order = 0, type = com.autobot.rpa.data.model.ConditionType.IMAGE_FOUND)
+                                "Set Variable" -> ScriptAction.SetVariable(id = java.util.UUID.randomUUID().toString(), order = 0, varName = "myVar", varValue = "value")
                                 "Comment" -> ScriptAction.Comment(id = java.util.UUID.randomUUID().toString(), order = 0, text = "Comment")
                                 else -> return@clickable
                             }

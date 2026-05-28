@@ -135,37 +135,37 @@ private fun getActionInfo(action: ScriptAction): Triple<ImageVector, String, Str
         is ScriptAction.Tap -> Triple(
             Icons.Default.TouchApp,
             "Tap",
-            "Position: (${action.x}, ${action.y})"
+            "Position: (${action.x}, ${action.y})" + (if (action.xStr != null || action.yStr != null) " [var]" else "")
         )
         is ScriptAction.Swipe -> Triple(
             Icons.Default.Swipe,
             "Swipe",
-            "From (${action.startX}, ${action.startY}) to (${action.endX}, ${action.endY})"
+            "From (${action.startX}, ${action.startY}) to (${action.endX}, ${action.endY})" + (if (action.startXStr != null || action.startYStr != null || action.endXStr != null || action.endYStr != null) " [var]" else "")
         )
         is ScriptAction.LongPress -> Triple(
             Icons.Default.TouchApp,
             "Long Press",
-            "Position: (${action.x}, ${action.y}), Duration: ${action.duration}ms"
+            "Position: (${action.x}, ${action.y}), Duration: ${action.duration}ms" + (if (action.xStr != null || action.yStr != null) " [var]" else "")
         )
         is ScriptAction.TextInput -> Triple(
             Icons.Default.TextFields,
             "Text Input",
-            "\"${action.text}\""
+            (if (action.text.length > 20) "${action.text.substring(0, 20)}..." else "\"${action.text}\"") + (if (action.textStr != null) " [var]" else "")
         )
         is ScriptAction.KeyPress -> Triple(
             Icons.Default.Keyboard,
             "Key Press",
-            "KeyCode: ${action.keyCode}"
+            "KeyCode: ${action.keyCode}" + (if (action.keyCodeStr != null) " [var]" else "")
         )
         is ScriptAction.Delay -> Triple(
             Icons.Default.Timer,
             "Delay",
-            "${action.milliseconds}ms"
+            "${action.milliseconds}ms" + (if (action.millisecondsStr != null) " [var]" else "")
         )
         is ScriptAction.Screenshot -> Triple(
             Icons.Default.CameraAlt,
             "Screenshot",
-            action.fileName
+            (action.fileName.ifEmpty { "Capture" }) + (if (action.fileNameStr != null) " [var]" else "")
         )
         is ScriptAction.FindImage -> Triple(
             Icons.Default.ImageSearch,
@@ -204,7 +204,7 @@ private fun getActionInfo(action: ScriptAction): Triple<ImageVector, String, Str
         is ScriptAction.Comment -> Triple(
             Icons.Default.Comment,
             "Comment",
-            action.text
+            (if (action.text.length > 30) "${action.text.substring(0, 30)}..." else action.text) + (if (action.textStr != null) " [var]" else "")
         )
         is ScriptAction.SetVariable -> Triple(
             Icons.Default.Edit,
