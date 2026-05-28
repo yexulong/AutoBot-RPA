@@ -16,17 +16,24 @@ AutoBotRPA/
 │   │   │   ├── data/
 │   │   │   │   ├── database/
 │   │   │   │   │   ├── AutoBotDatabase.kt    # Room database
-│   │   │   │   │   └── ScriptDao.kt         # Script DAO
+│   │   │   │   │   ├── ScriptDao.kt         # Script DAO
+│   │   │   │   │   └── GroupDao.kt          # Group DAO
 │   │   │   │   ├── model/
-│   │   │   │   │   └── Script.kt             # Data models for scripts & actions
+│   │   │   │   │   ├── Script.kt             # Data models for scripts &amp; actions
+│   │   │   │   │   └── ScriptGroup.kt        # Script group data model
 │   │   │   │   └── repository/
-│   │   │   │       └── ScriptRepository.kt   # Repository pattern
+│   │   │   │       ├── ScriptRepository.kt   # Script repository
+│   │   │   │       └── GroupRepository.kt    # Group repository
 │   │   │   ├── di/
 │   │   │   │   └── DatabaseModule.kt         # Hilt DI module
 │   │   │   ├── service/
 │   │   │   │   ├── AutoBotAccessibilityService.kt  # Accessibility service for gestures
 │   │   │   │   ├── AutoBotForegroundService.kt      # Foreground service
-│   │   │   │   └── AutomationEngine.kt               # Core automation engine
+│   │   │   │   ├── AutomationEngine.kt               # Core automation engine
+│   │   │   │   ├── ScreenshotManager.kt              # Screenshot capture and management
+│   │   │   │   ├── CoordinateRecorderService.kt      # Coordinate recorder service
+│   │   │   │   ├── ImageMatchingService.kt           # OpenCV image matching
+│   │   │   │   └── TextRecognitionService.kt         # ML Kit text recognition
 │   │   │   └── ui/
 │   │   │       ├── AutoBotApp.kt             # Main app navigation
 │   │   │       ├── theme/                    # Material 3 theming
@@ -36,8 +43,9 @@ AutoBotRPA/
 │   │   │       ├── screens/
 │   │   │       │   ├── ScriptListScreen.kt   # Script management
 │   │   │       │   ├── ScriptEditorScreen.kt  # Script editing
-│   │   │       │   ├── ScriptExecutionScreen.kt # Script execution & logs
+│   │   │       │   ├── ScriptExecutionScreen.kt # Script execution &amp; logs
 │   │   │       │   ├── SettingsScreen.kt      # App settings
+│   │   │       │   ├── GroupListScreen.kt    # Group management
 │   │   │       │   └── ViewModels            # MVVM ViewModels
 │   │   │       └── components/
 │   │   │           └── ActionItemCard.kt     # Reusable action cards
@@ -61,16 +69,17 @@ AutoBotRPA/
 - **Text Input**: Input text into fields
 - **Key Press**: Simulate physical buttons
 - **Delay**: Wait for specified duration
+- **Set Variable**: Store and use custom variables
 
 ### 2. Image and Text Recognition
 - **Screenshot**: Capture current screen with full implementation
 - **Screenshot Management**: View, share, and delete captured screenshots in Settings
-- **Find Image**: Template matching (basic implementation)
-- **Find Text**: OCR text recognition with ML Kit (supports Chinese and English)
+- **Find Image**: Template matching with OpenCV (supports debugging, thresholds, and result variables)
+- **Find Text**: OCR text recognition with ML Kit (supports Chinese and English, debugging, thresholds, and result variables)
 
 ### 3. Flow Control
-- **Loop**: Repeat actions (N times or infinite)
-- **Condition**: Branch based on image/color presence
+- **Loop**: Repeat actions (N times or infinite) with full implementation
+- **Condition**: Branch based on image/text presence (with true/false branches)
 - **Comment**: Add notes to scripts
 
 ### 4. Script Management
@@ -78,18 +87,27 @@ AutoBotRPA/
 - Organize actions in scripts
 - Reorder actions via drag-and-drop
 - Save/load scripts with Room database
+- **Script Grouping**: Organize scripts into groups for better management
 
-### 5. Execution Engine
+### 5. Variable System
+- Full variable support for all actions (Tap, Swipe, LongPress, TextInput, Delay, KeyPress, Screenshot, Comment)
+- Variable reference format: `${variableName}` or `${variableName.property}`
+- FindImage and FindText results can be saved to variables
+- SetVariable action for custom variable assignment
+
+### 6. Execution Engine
 - Real-time execution control (Run/Pause/Stop)
 - Live logging with timestamps
 - Execution statistics
 - Foreground service for background operation
+- Full loop execution with pause/resume support
 
-### 6. Accessibility Service
+### 7. Accessibility Service
 - Perform gestures using Android AccessibilityService
 - Tap at coordinates
 - Swipe gestures
 - Long press support
+- Coordinate recorder via floating window
 
 ## Technology Stack
 
@@ -207,7 +225,7 @@ The app requires the following permissions:
 
 ### High Priority - Core Automation Features
 
-- [ ] **Loop Logic Implementation** - Implement actual loop execution in `AutomationEngine.executeActions()` with loop start/end detection and loop counter management
+- [x] **Loop Logic Implementation** - Implement actual loop execution in `AutomationEngine.executeActions()` with loop start/end detection and loop counter management
 - [x] **Condition Branch Implementation** - Add actual condition evaluation and true/false branch execution
 - [x] **Condition Serialization** - Fix `ScriptConverters` to properly serialize/deserialize `trueBranch` and `falseBranch` in `Condition` action
 - [x] **Screenshot Feature** - Implement actual screen capture and file saving in `takeScreenshot()`
@@ -218,16 +236,16 @@ The app requires the following permissions:
 ### Medium Priority - Additional Features
 
 - [ ] **Script Import/Export** - Add ability to backup and restore scripts (JSON format recommended)
-- [ ] **Script Grouping** - Add grouping/categorization feature for organizing scripts
+- [x] **Script Grouping** - Add grouping/categorization feature for organizing scripts
 - [ ] **Double Tap Action** - Add `DoubleTap` action type to `ScriptAction` and implement in engine
 - [x] **Script Execution Pause/Resume** - Verify and test pause/resume functionality
 - [x] **Coordinate Recorder** - Test and ensure coordinate recording from screen works correctly
-- [x] **Variable System (Partial)** - Add support for storing FindImage results in variables (partial implementation exists)
+- [x] **Variable System (Full)** - Add support for storing FindImage/FindText results in variables and using variables in all actions
 
 ### Low Priority - Enhancements
 
-- [ ] **Full Variable System** - Add complete support for storing and using variables in all actions
-- [ ] **OCR Text Recognition** - Add ability to recognize text on screen
+- [x] **Full Variable System** - Add complete support for storing and using variables in all actions
+- [x] **OCR Text Recognition** - Add ability to recognize text on screen using ML Kit
 - [ ] **Cloud Sharing** - Add script sharing functionality
 - [ ] **Action Recording Mode** - Add ability to record user actions as script steps
 
@@ -235,19 +253,19 @@ The app requires the following permissions:
 
 ## Known Limitations
 
-1. **Image Recognition**: Currently only a placeholder, no actual implementation
-2. **Loop & Condition**: Only UI stubs exist, no execution logic
+1. **Color Matching**: Not yet implemented
+2. **Script Import/Export**: Not yet implemented
 3. **Accessibility Service**: Requires explicit user permission
 4. **Background Execution**: Requires foreground service notification
 
 ## Future Enhancements
 
 1. Color matching feature
-2. Loop nesting and complex conditions
-3. Full variable system for all actions
-4. Import/export scripts
-5. Cloud script sharing
-6. Recording mode (record user actions)
+2. Script import/export functionality
+3. Cloud script sharing
+4. Action recording mode (record user actions)
+5. Double tap action
+6. Advanced loop features (nesting, conditions)
 
 ## Troubleshooting
 
