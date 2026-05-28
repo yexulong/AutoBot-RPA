@@ -290,10 +290,14 @@ class AutomationEngine @Inject constructor(
             return defaultValue
         }
         
+        // 先尝试解析变量，处理 ${var} 格式
+        val resolvedStr = resolveString(valueStr, valueStr)
+        resolvedStr.toIntOrNull()?.let { return it }
+        
         // 尝试直接解析为数字
         valueStr.toIntOrNull()?.let { return it }
         
-        // 尝试解析变量
+        // 尝试直接解析变量名
         val resolved = resolveVariable(valueStr)
         return when (resolved) {
             is Int -> resolved
@@ -317,8 +321,12 @@ class AutomationEngine @Inject constructor(
         
         if (variableStore.containsKey(mainVar)) {
             val value = variableStore[mainVar]
-            if (parts.size == 2 && value is Map<*, *>) {
-                return value[parts[1]]
+            if (parts.size == 2) {
+                if (value is Map<*, *>) {
+                    return value[parts[1]]
+                }
+                // 如果值不是 Map 但有属性访问，返回 null
+                return null
             }
             return value
         }
