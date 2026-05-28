@@ -3,6 +3,8 @@ package com.autobot.rpa.ui.screens
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.autobot.rpa.data.model.Script
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
 import com.autobot.rpa.data.model.ScriptGroup
 import com.autobot.rpa.data.repository.GroupRepository
 import com.autobot.rpa.data.repository.ScriptRepository
@@ -10,9 +12,11 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapConcat
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+@OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 @HiltViewModel
 class ScriptListViewModel @Inject constructor(
     private val scriptRepository: ScriptRepository,
@@ -34,8 +38,15 @@ class ScriptListViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading
 
+    private val _isShowingScripts = MutableStateFlow(false)
+    val isShowingScripts: StateFlow<Boolean> = _isShowingScripts
+
     init {
         loadData()
+    }
+
+    fun setIsShowingScripts(showing: Boolean) {
+        _isShowingScripts.value = showing
     }
 
     private fun loadData() {
@@ -43,19 +54,16 @@ class ScriptListViewModel @Inject constructor(
             _isLoading.value = true
             
             combine(
-                scriptRepository.getAllScripts(),
+                _selectedGroupId.flatMapConcat { selectedId ->
+                    scriptRepository.getScriptsByGroupId(selectedId)
+                },
                 groupRepository.getAllGroups(),
                 _selectedGroupId
-            ) { scripts, groups, selectedId ->
-                Triple(scripts, groups, selectedId)
-            }.collect { (scripts, groups, selectedId) ->
-                _scripts.value = scripts
+            ) { filteredScripts, groups, selectedId ->
+                Triple(filteredScripts, groups, selectedId)
+            }.collect { (filteredScripts, groups, selectedId) ->
                 _groups.value = groups
-                _filteredScripts.value = if (selectedId == null) {
-                    scripts.filter { it.groupId == null }
-                } else {
-                    scripts.filter { it.groupId == selectedId }
-                }
+                _filteredScripts.value = filteredScripts
                 _isLoading.value = false
             }
         }

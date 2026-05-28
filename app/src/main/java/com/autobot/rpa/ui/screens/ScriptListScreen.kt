@@ -32,12 +32,10 @@ fun ScriptListScreen(
     val groups by viewModel.groups.collectAsState()
     val selectedGroupId by viewModel.selectedGroupId.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val isShowingScripts by viewModel.isShowingScripts.collectAsState()
     var showCreateDialog by remember { mutableStateOf(false) }
     var scriptToDelete by remember { mutableStateOf<Script?>(null) }
     var scriptToChangeGroup by remember { mutableStateOf<Script?>(null) }
-
-    // 视图状态：显示分组列表 或 显示某个分组的脚本列表
-    var isShowingScripts by remember { mutableStateOf(false) }
 
     val currentGroupName = if (selectedGroupId == null) {
         stringResource(R.string.ungrouped)
@@ -58,7 +56,7 @@ fun ScriptListScreen(
                 navigationIcon = {
                     if (isShowingScripts) {
                         IconButton(onClick = {
-                            isShowingScripts = false
+                            viewModel.setIsShowingScripts(false)
                             viewModel.selectGroup(null)
                         }) {
                             Icon(Icons.Default.ArrowBack, contentDescription = "Back")
@@ -133,9 +131,7 @@ fun ScriptListScreen(
                                 onClick = { onNavigateToEditor(script.id) },
                                 onDelete = { scriptToDelete = script },
                                 onExecute = {
-                                    viewModel.scripts.value.find { it.id == script.id }?.let {
-                                        onNavigateToEditor(it.id)
-                                    }
+                                    onNavigateToEditor(script.id)
                                 },
                                 onChangeGroup = { scriptToChangeGroup = script }
                             )
@@ -168,7 +164,7 @@ fun ScriptListScreen(
                                 name = stringResource(R.string.ungrouped),
                                 onClick = {
                                     viewModel.selectGroup(null)
-                                    isShowingScripts = true
+                                    viewModel.setIsShowingScripts(true)
                                 }
                             )
                         }
@@ -178,7 +174,7 @@ fun ScriptListScreen(
                                 name = group.name,
                                 onClick = {
                                     viewModel.selectGroup(group.id)
-                                    isShowingScripts = true
+                                    viewModel.setIsShowingScripts(true)
                                 }
                             )
                         }
