@@ -20,6 +20,7 @@ import com.autobot.rpa.ui.screens.ScriptListScreen
 import com.autobot.rpa.ui.screens.SettingsScreen
 import com.autobot.rpa.ui.screens.ScriptEditorScreen
 import com.autobot.rpa.ui.screens.ScriptExecutionScreen
+import com.autobot.rpa.ui.screens.GroupListScreen
 
 sealed class Screen(val route: String, val titleResId: Int, val icon: @Composable () -> Unit) {
     object Scripts : Screen("scripts", R.string.scripts, { Icon(Icons.Default.List, contentDescription = null) })
@@ -28,6 +29,7 @@ sealed class Screen(val route: String, val titleResId: Int, val icon: @Composabl
     object Editor : Screen("editor/{scriptId}", R.string.edit_script, { Icon(Icons.Default.List, contentDescription = null) }) {
         fun createRoute(scriptId: Long) = "editor/$scriptId"
     }
+    object Groups : Screen("groups", R.string.groups, { Icon(Icons.Default.List, contentDescription = null) })
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -77,6 +79,9 @@ fun AutoBotApp() {
                     },
                     onNavigateToExecution = {
                         navController.navigate(Screen.Execute.route)
+                    },
+                    onNavigateToGroups = {
+                        navController.navigate(Screen.Groups.route)
                     }
                 )
             }
@@ -90,6 +95,11 @@ fun AutoBotApp() {
                 val scriptId = backStackEntry.arguments?.getString("scriptId")?.toLongOrNull() ?: -1L
                 ScriptEditorScreen(
                     scriptId = scriptId,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+            composable(Screen.Groups.route) {
+                GroupListScreen(
                     onNavigateBack = { navController.popBackStack() }
                 )
             }

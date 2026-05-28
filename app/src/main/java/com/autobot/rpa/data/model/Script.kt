@@ -18,7 +18,8 @@ data class Script(
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
     val runCount: Int = 0,
-    val lastRunAt: Long? = null
+    val lastRunAt: Long? = null,
+    val groupId: Long? = null
 )
 
 sealed class ScriptAction {

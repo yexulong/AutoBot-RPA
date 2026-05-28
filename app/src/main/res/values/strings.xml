@@ -32,4 +32,14 @@
     <string name="notification_channel_description">Shows when automation is running</string>
     <string name="automation_running">Automation Running</string>
     <string name="no_scripts">No scripts yet. Create one to get started!</string>
+    <string name="groups">Groups</string>
+    <string name="add_group">Add Group</string>
+    <string name="edit_group">Edit Group</string>
+    <string name="delete_group">Delete Group</string>
+    <string name="delete_group_confirmation">Are you sure you want to delete \"%s\"? All scripts in this group will be moved to Ungrouped.</string>
+    <string name="group_name">Group Name</string>
+    <string name="ungrouped">Ungrouped</string>
+    <string name="all_groups">All Groups</string>
+    <string name="select_group">Select Group</string>
+    <string name="change_group">Change Group</string>
 </resources>

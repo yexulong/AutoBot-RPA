@@ -12,6 +12,8 @@ class ScriptRepository @Inject constructor(
 ) {
     fun getAllScripts(): Flow<List<Script>> = scriptDao.getAllScripts()
 
+    fun getScriptsByGroupId(groupId: Long?): Flow<List<Script>> = scriptDao.getScriptsByGroupId(groupId)
+
     suspend fun getScriptById(id: Long): Script? = scriptDao.getScriptById(id)
 
     suspend fun insertScript(script: Script): Long = scriptDao.insertScript(script)
@@ -23,4 +25,6 @@ class ScriptRepository @Inject constructor(
     suspend fun deleteScriptById(id: Long) = scriptDao.deleteScriptById(id)
 
     suspend fun incrementRunCount(id: Long) = scriptDao.incrementRunCount(id)
+
+    suspend fun updateScriptGroup(scriptId: Long, groupId: Long?) = scriptDao.updateScriptGroup(scriptId, groupId)
 }
