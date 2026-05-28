@@ -206,5 +206,10 @@ private fun getActionInfo(action: ScriptAction): Triple<ImageVector, String, Str
             "Comment",
             action.text
         )
+        is ScriptAction.SetVariable -> Triple(
+            Icons.Default.Edit,
+            "Set Variable",
+            "${action.varName} = ${action.varValue}"
+        )
     }
 }

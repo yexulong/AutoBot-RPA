@@ -63,25 +63,36 @@ sealed class ScriptAction {
     data class TextInput(
         override val id: String = java.util.UUID.randomUUID().toString(),
         override val order: Int = 0,
-        val text: String
+        val text: String,
+        val textStr: String? = null
     ) : ScriptAction()
 
     data class KeyPress(
         override val id: String = java.util.UUID.randomUUID().toString(),
         override val order: Int = 0,
-        val keyCode: Int
+        val keyCode: Int,
+        val keyCodeStr: String? = null
     ) : ScriptAction()
 
     data class Delay(
         override val id: String = java.util.UUID.randomUUID().toString(),
         override val order: Int = 0,
-        val milliseconds: Int
+        val milliseconds: Int,
+        val millisecondsStr: String? = null
     ) : ScriptAction()
 
     data class Screenshot(
         override val id: String = java.util.UUID.randomUUID().toString(),
         override val order: Int = 0,
-        val fileName: String = ""
+        val fileName: String = "",
+        val fileNameStr: String? = null
+    ) : ScriptAction()
+
+    data class SetVariable(
+        override val id: String = java.util.UUID.randomUUID().toString(),
+        override val order: Int = 0,
+        val varName: String,
+        val varValue: String
     ) : ScriptAction()
 
     data class FindImage(
@@ -138,7 +149,8 @@ sealed class ScriptAction {
     data class Comment(
         override val id: String = java.util.UUID.randomUUID().toString(),
         override val order: Int = 0,
-        val text: String
+        val text: String,
+        val textStr: String? = null
     ) : ScriptAction()
 }
 
@@ -208,18 +220,27 @@ class ScriptConverters {
             is ScriptAction.TextInput -> {
                 json.put("type", "TextInput")
                 json.put("text", action.text)
+                json.put("textStr", action.textStr)
             }
             is ScriptAction.KeyPress -> {
                 json.put("type", "KeyPress")
                 json.put("keyCode", action.keyCode)
+                json.put("keyCodeStr", action.keyCodeStr)
             }
             is ScriptAction.Delay -> {
                 json.put("type", "Delay")
                 json.put("milliseconds", action.milliseconds)
+                json.put("millisecondsStr", action.millisecondsStr)
             }
             is ScriptAction.Screenshot -> {
                 json.put("type", "Screenshot")
                 json.put("fileName", action.fileName)
+                json.put("fileNameStr", action.fileNameStr)
+            }
+            is ScriptAction.SetVariable -> {
+                json.put("type", "SetVariable")
+                json.put("varName", action.varName)
+                json.put("varValue", action.varValue)
             }
             is ScriptAction.FindImage -> {
                 json.put("type", "FindImage")
@@ -275,6 +296,7 @@ class ScriptConverters {
             is ScriptAction.Comment -> {
                 json.put("type", "Comment")
                 json.put("text", action.text)
+                json.put("textStr", action.textStr)
             }
         }
         json.put("id", action.id)
@@ -311,10 +333,11 @@ class ScriptConverters {
                 if (json.has("yStr") && !json.isNull("yStr")) json.getString("yStr") else null,
                 json.optInt("duration", 1000)
             )
-            "TextInput" -> ScriptAction.TextInput(id, order, json.getString("text"))
-            "KeyPress" -> ScriptAction.KeyPress(id, order, json.getInt("keyCode"))
-            "Delay" -> ScriptAction.Delay(id, order, json.getInt("milliseconds"))
-            "Screenshot" -> ScriptAction.Screenshot(id, order, json.optString("fileName", ""))
+            "TextInput" -> ScriptAction.TextInput(id, order, json.getString("text"), if (json.has("textStr") && !json.isNull("textStr")) json.getString("textStr") else null)
+            "KeyPress" -> ScriptAction.KeyPress(id, order, json.getInt("keyCode"), if (json.has("keyCodeStr") && !json.isNull("keyCodeStr")) json.getString("keyCodeStr") else null)
+            "Delay" -> ScriptAction.Delay(id, order, json.getInt("milliseconds"), if (json.has("millisecondsStr") && !json.isNull("millisecondsStr")) json.getString("millisecondsStr") else null)
+            "Screenshot" -> ScriptAction.Screenshot(id, order, json.optString("fileName", ""), if (json.has("fileNameStr") && !json.isNull("fileNameStr")) json.getString("fileNameStr") else null)
+            "SetVariable" -> ScriptAction.SetVariable(id, order, json.getString("varName"), json.getString("varValue"))
             "FindImage" -> ScriptAction.FindImage(id, order, json.getString("templatePath"), json.optInt("timeout", 5000), json.optBoolean("saveResult", false), json.optString("resultVarName", ""), if (json.isNull("matchX")) null else json.optInt("matchX"), if (json.isNull("matchY")) null else json.optInt("matchY"), json.optBoolean("found", false), json.optDouble("threshold", 0.7), json.optBoolean("debugMode", false))
             "FindText" -> ScriptAction.FindText(id, order, json.getString("targetText"), json.optInt("timeout", 5000), json.optBoolean("saveResult", false), json.optString("resultVarName", ""), if (json.isNull("matchX")) null else json.optInt("matchX"), if (json.isNull("matchY")) null else json.optInt("matchY"), json.optBoolean("found", false), json.optDouble("threshold", 0.8), json.optBoolean("debugMode", false))
             "LoopStart" -> ScriptAction.LoopStart(id, order, json.optInt("times", -1), json.optBoolean("infinite", false))
@@ -346,7 +369,7 @@ class ScriptConverters {
                     falseBranch
                 )
             }
-            "Comment" -> ScriptAction.Comment(id, order, json.getString("text"))
+            "Comment" -> ScriptAction.Comment(id, order, json.getString("text"), if (json.has("textStr") && !json.isNull("textStr")) json.getString("textStr") else null)
             else -> throw IllegalArgumentException("Unknown action type: $type")
         }
     }

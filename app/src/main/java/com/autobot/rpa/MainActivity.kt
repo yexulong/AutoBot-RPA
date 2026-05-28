@@ -157,6 +157,8 @@ class MainActivity : ComponentActivity() {
         }
     }
     
+    private var backHandler: (() -> Boolean)? = null
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
@@ -168,9 +170,20 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    AutoBotApp()
+                    AutoBotApp(
+                        onBackPressed = { handler ->
+                            backHandler = handler
+                        }
+                    )
                 }
             }
+        }
+    }
+    
+    override fun onBackPressed() {
+        val handled = backHandler?.invoke() ?: false
+        if (!handled) {
+            super.onBackPressed()
         }
     }
     

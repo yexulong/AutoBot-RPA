@@ -34,7 +34,7 @@ sealed class Screen(val route: String, val titleResId: Int, val icon: @Composabl
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AutoBotApp() {
+fun AutoBotApp(onBackPressed: ((() -> Boolean) -> Unit)) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -82,7 +82,8 @@ fun AutoBotApp() {
                     },
                     onNavigateToGroups = {
                         navController.navigate(Screen.Groups.route)
-                    }
+                    },
+                    onBackPressed = onBackPressed
                 )
             }
             composable(Screen.Execute.route) {
@@ -95,7 +96,8 @@ fun AutoBotApp() {
                 val scriptId = backStackEntry.arguments?.getString("scriptId")?.toLongOrNull() ?: -1L
                 ScriptEditorScreen(
                     scriptId = scriptId,
-                    onNavigateBack = { navController.popBackStack() }
+                    onNavigateBack = { navController.popBackStack() },
+                    onBackPressed = onBackPressed
                 )
             }
             composable(Screen.Groups.route) {

@@ -48,17 +48,30 @@ import java.io.FileOutputStream
 fun ScriptEditorScreen(
     scriptId: Long,
     viewModel: ScriptEditorViewModel = hiltViewModel(),
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onBackPressed: ((() -> Boolean) -> Unit)? = null
 ) {
+    val hasChanges by viewModel.hasChanges.collectAsState()
+    var showSaveDialog by remember { mutableStateOf(false) }
+    
+    DisposableEffect(Unit) {
+        onBackPressed?.invoke {
+            if (hasChanges) {
+                showSaveDialog = true
+                true
+            } else {
+                false
+            }
+        }
+        onDispose { }
+    }
     val script by viewModel.script.collectAsState()
     val actions by viewModel.actions.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
-    val hasChanges by viewModel.hasChanges.collectAsState()
     val saveComplete by viewModel.saveComplete.collectAsState()
 
     var showAddActionDialog by remember { mutableStateOf(false) }
     var showEditDialog by remember { mutableStateOf(false) }
-    var showSaveDialog by remember { mutableStateOf(false) }
     var showSuccessDialog by remember { mutableStateOf(false) }
     var scriptName by remember { mutableStateOf("") }
     var editingAction by remember { mutableStateOf<ScriptAction?>(null) }
@@ -314,6 +327,7 @@ fun EditActionDialog(
         is ScriptAction.LoopEnd -> EditLoopEndDialog(action, onDismiss, onSave)
         is ScriptAction.Condition -> EditConditionDialog(action, onDismiss, onSave)
         is ScriptAction.Comment -> EditCommentDialog(action, onDismiss, onSave)
+        else -> {}
     }
 }
 
@@ -2215,6 +2229,11 @@ private fun getActionInfo(action: ScriptAction): Triple<androidx.compose.ui.grap
             Icons.Default.Comment,
             "Comment",
             action.text
+        )
+        is ScriptAction.SetVariable -> Triple(
+            Icons.Default.Edit,
+            "Set Variable",
+            "${action.varName} = ${action.varValue}"
         )
     }
 }

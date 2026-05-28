@@ -12,7 +12,7 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.flatMapConcat
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -48,19 +48,20 @@ class ScriptListViewModel @Inject constructor(
 
     private fun loadData() {
         viewModelScope.launch {
-            _isLoading.value = true
-            
-            combine(
-                _selectedGroupId.flatMapConcat { selectedId ->
-                    scriptRepository.getScriptsByGroupId(selectedId)
-                },
-                groupRepository.getAllGroups(),
-                _selectedGroupId
-            ) { filteredScripts, groups, selectedId ->
-                Triple(filteredScripts, groups, selectedId)
-            }.collect { (filteredScripts, groups, selectedId) ->
+            _selectedGroupId.flatMapLatest { selectedId ->
+                // 每当分组改变时，先设置加载状态
+                _isLoading.value = true
+                _filteredScripts.value = emptyList()
+                
+                combine(
+                    scriptRepository.getScriptsByGroupId(selectedId),
+                    groupRepository.getAllGroups()
+                ) { scripts, groups ->
+                    Triple(scripts, groups, selectedId)
+                }
+            }.collect { (scripts, groups, _) ->
                 _groups.value = groups
-                _filteredScripts.value = filteredScripts
+                _filteredScripts.value = scripts
                 _isLoading.value = false
             }
         }

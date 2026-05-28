@@ -189,20 +189,21 @@ class AutomationEngine @Inject constructor(
             FloatingWindowService.setCurrentActionIndex(index)
 
             val actionName = when (action) {
-                is ScriptAction.Tap -> "Tap (${action.x}, ${action.y})"
-                is ScriptAction.Swipe -> "Swipe"
-                is ScriptAction.LongPress -> "LongPress (${action.x}, ${action.y})"
-                is ScriptAction.TextInput -> "TextInput: ${action.text}"
-                is ScriptAction.KeyPress -> "KeyPress: ${action.keyCode}"
-                is ScriptAction.Delay -> "Delay: ${action.milliseconds}ms"
-                is ScriptAction.Screenshot -> "Screenshot"
-                is ScriptAction.FindImage -> "FindImage"
-                is ScriptAction.FindText -> "FindText"
-                is ScriptAction.LoopStart -> "LoopStart"
-                is ScriptAction.LoopEnd -> "LoopEnd"
-                is ScriptAction.Condition -> "Condition"
-                is ScriptAction.Comment -> "Comment: ${action.text}"
-            }
+            is ScriptAction.Tap -> "Tap (${action.x}, ${action.y})"
+            is ScriptAction.Swipe -> "Swipe"
+            is ScriptAction.LongPress -> "LongPress (${action.x}, ${action.y})"
+            is ScriptAction.TextInput -> "TextInput: ${action.text}"
+            is ScriptAction.KeyPress -> "KeyPress: ${action.keyCode}"
+            is ScriptAction.Delay -> "Delay: ${action.milliseconds}ms"
+            is ScriptAction.Screenshot -> "Screenshot"
+            is ScriptAction.FindImage -> "FindImage"
+            is ScriptAction.FindText -> "FindText"
+            is ScriptAction.LoopStart -> "LoopStart"
+            is ScriptAction.LoopEnd -> "LoopEnd"
+            is ScriptAction.Condition -> "Condition"
+            is ScriptAction.Comment -> "Comment: ${action.text}"
+            is ScriptAction.SetVariable -> "SetVariable: ${action.varName}"
+        }
             
             val stepInfo = "Step ${index + 1}/${actions.size}: $actionName"
             FloatingWindowService.updateStep(stepInfo)
@@ -266,7 +267,25 @@ class AutomationEngine @Inject constructor(
         var currentIteration: Int
     )
 
-    private fun resolveCoordinate(valueStr: String?, defaultValue: Int): Int {
+    private fun resolveString(valueStr: String?, defaultValue: String): String {
+        if (valueStr.isNullOrEmpty()) {
+            return defaultValue
+        }
+        
+        // 简单的变量替换，只处理 ${var} 格式
+        var result = valueStr
+        val pattern = Regex("\\$\\{([^}]+)\\}")
+        
+        // 替换所有匹配项
+        result = pattern.replace(result) { matchResult ->
+            val varName = matchResult.groupValues[1]
+            resolveVariable(varName)?.toString() ?: defaultValue
+        }
+        
+        return result
+    }
+
+    private fun resolveInt(valueStr: String?, defaultValue: Int): Int {
         if (valueStr.isNullOrEmpty()) {
             return defaultValue
         }
@@ -274,38 +293,41 @@ class AutomationEngine @Inject constructor(
         // 尝试直接解析为数字
         valueStr.toIntOrNull()?.let { return it }
         
-        // 尝试解析变量引用，支持 ${var.x} 或 var.x
-        var varName = valueStr.trim()
-        if (varName.startsWith("\${") && varName.endsWith("}")) {
-            varName = varName.substring(2, varName.length - 1)
+        // 尝试解析变量
+        val resolved = resolveVariable(valueStr)
+        return when (resolved) {
+            is Int -> resolved
+            is Number -> resolved.toInt()
+            is String -> resolved.toIntOrNull() ?: defaultValue
+            else -> defaultValue
+        }
+    }
+    
+    private fun resolveVariable(expr: String): Any? {
+        var varName = expr
+        
+        // 如果是 ${variable} 格式，提取变量名
+        if (expr.startsWith("\${") && expr.endsWith("}")) {
+            varName = expr.substring(2, expr.length - 1)
         }
         
-        // 支持变量.属性格式
+        // 支持 variable.property 格式
         val parts = varName.split(".", limit = 2)
-        val mainVarName = parts[0]
+        val mainVar = parts[0]
         
-        if (variableStore.containsKey(mainVarName)) {
-            val varValue = variableStore[mainVarName]
-            if (varValue is Map<*, *>) {
-                if (parts.size == 2) {
-                    val propName = parts[1]
-                    varValue[propName]?.let {
-                        when (it) {
-                            is Int -> return it
-                            is Number -> return it.toInt()
-                            is String -> return it.toIntOrNull() ?: defaultValue
-                        }
-                    }
-                }
-            } else if (varValue is Int) {
-                return varValue
-            } else if (varValue is Number) {
-                return varValue.toInt()
+        if (variableStore.containsKey(mainVar)) {
+            val value = variableStore[mainVar]
+            if (parts.size == 2 && value is Map<*, *>) {
+                return value[parts[1]]
             }
+            return value
         }
         
-        log("Failed to resolve coordinate: $valueStr, using default: $defaultValue", LogType.WARNING)
-        return defaultValue
+        return null
+    }
+
+    private fun resolveCoordinate(valueStr: String?, defaultValue: Int): Int {
+        return resolveInt(valueStr, defaultValue)
     }
 
     private suspend fun executeAction(action: ScriptAction) {
@@ -348,31 +370,41 @@ class AutomationEngine @Inject constructor(
             }
 
             is ScriptAction.TextInput -> {
-                inputText(action.text)
-                log("Input text: ${action.text}", LogType.SUCCESS)
+                val text = resolveString(action.textStr, action.text)
+                inputText(text)
+                log("Input text: $text", LogType.SUCCESS)
             }
 
             is ScriptAction.KeyPress -> {
+                val keyCode = resolveInt(action.keyCodeStr, action.keyCode)
                 var success = false
                 if (accessibilityService != null) {
-                    success = accessibilityService.performKeyEventWithDelay(action.keyCode)
+                    success = accessibilityService.performKeyEventWithDelay(keyCode)
                 }
                 
                 if (!success) {
-                    sendKeyEvent(action.keyCode)
+                    sendKeyEvent(keyCode)
                 }
                 
-                val keyName = getKeyName(action.keyCode)
-                log("Pressed key: $keyName (${action.keyCode})", LogType.SUCCESS)
+                val keyName = getKeyName(keyCode)
+                log("Pressed key: $keyName ($keyCode)", LogType.SUCCESS)
             }
 
             is ScriptAction.Delay -> {
-                delay(action.milliseconds.toLong())
-                log("Waited ${action.milliseconds}ms", LogType.INFO)
+                val milliseconds = resolveInt(action.millisecondsStr, action.milliseconds)
+                delay(milliseconds.toLong())
+                log("Waited ${milliseconds}ms", LogType.INFO)
             }
 
             is ScriptAction.Screenshot -> {
-                takeScreenshot(action.fileName)
+                val fileName = resolveString(action.fileNameStr, action.fileName)
+                takeScreenshot(fileName)
+            }
+
+            is ScriptAction.SetVariable -> {
+                val varValue = resolveString(action.varValue, action.varValue)
+                variableStore[action.varName] = varValue
+                log("Set variable: ${action.varName} = $varValue", LogType.SUCCESS)
             }
 
             is ScriptAction.FindImage -> {
@@ -400,7 +432,8 @@ class AutomationEngine @Inject constructor(
             }
 
             is ScriptAction.Comment -> {
-                log("Comment: ${action.text}", LogType.INFO)
+                val text = resolveString(action.textStr, action.text)
+                log("Comment: $text", LogType.INFO)
             }
         }
     }

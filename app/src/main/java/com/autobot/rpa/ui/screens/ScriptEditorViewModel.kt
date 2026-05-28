@@ -66,6 +66,7 @@ class ScriptEditorViewModel @Inject constructor(
             is ScriptAction.LoopEnd -> copy(order = newOrder)
             is ScriptAction.Condition -> copy(order = newOrder)
             is ScriptAction.Comment -> copy(order = newOrder)
+            is ScriptAction.SetVariable -> copy(order = newOrder)
         }
     }
 

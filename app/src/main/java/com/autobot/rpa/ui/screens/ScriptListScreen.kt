@@ -29,13 +29,27 @@ fun ScriptListScreen(
     viewModel: ScriptListViewModel = hiltViewModel(),
     onNavigateToEditor: (Long) -> Unit,
     onNavigateToExecution: () -> Unit,
-    onNavigateToGroups: () -> Unit
+    onNavigateToGroups: () -> Unit,
+    onBackPressed: ((() -> Boolean) -> Unit)
 ) {
+    val isShowingScripts by viewModel.isShowingScripts.collectAsState()
+    
+    DisposableEffect(Unit) {
+        onBackPressed {
+            if (isShowingScripts) {
+                viewModel.setIsShowingScripts(false)
+                viewModel.selectGroup(null)
+                true
+            } else {
+                false
+            }
+        }
+        onDispose { }
+    }
     val scripts by viewModel.filteredScripts.collectAsState()
     val groups by viewModel.groups.collectAsState()
     val selectedGroupId by viewModel.selectedGroupId.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
-    val isShowingScripts by viewModel.isShowingScripts.collectAsState()
     val lifecycleScope = LocalLifecycleOwner.current.lifecycleScope
     var showCreateDialog by remember { mutableStateOf(false) }
     var scriptToDelete by remember { mutableStateOf<Script?>(null) }
