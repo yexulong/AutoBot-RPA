@@ -10,13 +10,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.lifecycleScope
 import com.autobot.rpa.R
 import com.autobot.rpa.data.model.Script
 import com.autobot.rpa.data.model.ScriptGroup
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -33,6 +36,7 @@ fun ScriptListScreen(
     val selectedGroupId by viewModel.selectedGroupId.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val isShowingScripts by viewModel.isShowingScripts.collectAsState()
+    val lifecycleScope = LocalLifecycleOwner.current.lifecycleScope
     var showCreateDialog by remember { mutableStateOf(false) }
     var scriptToDelete by remember { mutableStateOf<Script?>(null) }
     var scriptToChangeGroup by remember { mutableStateOf<Script?>(null) }
@@ -188,8 +192,10 @@ fun ScriptListScreen(
         CreateScriptDialog(
             onDismiss = { showCreateDialog = false },
             onCreate = { name ->
-                viewModel.createNewScript(name)
-                showCreateDialog = false
+                lifecycleScope.launch {
+                    viewModel.createNewScript(name)
+                    showCreateDialog = false
+                }
             }
         )
     }

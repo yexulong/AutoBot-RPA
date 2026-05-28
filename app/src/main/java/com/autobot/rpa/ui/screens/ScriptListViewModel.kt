@@ -3,12 +3,12 @@ package com.autobot.rpa.ui.screens
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.autobot.rpa.data.model.Script
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.FlowPreview
 import com.autobot.rpa.data.model.ScriptGroup
 import com.autobot.rpa.data.repository.GroupRepository
 import com.autobot.rpa.data.repository.ScriptRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -22,9 +22,6 @@ class ScriptListViewModel @Inject constructor(
     private val scriptRepository: ScriptRepository,
     private val groupRepository: GroupRepository
 ) : ViewModel() {
-
-    private val _scripts = MutableStateFlow<List<Script>>(emptyList())
-    val scripts: StateFlow<List<Script>> = _scripts
 
     private val _groups = MutableStateFlow<List<ScriptGroup>>(emptyList())
     val groups: StateFlow<List<ScriptGroup>> = _groups
@@ -85,12 +82,8 @@ class ScriptListViewModel @Inject constructor(
         }
     }
 
-    fun createNewScript(name: String): Long {
-        var scriptId = -1L
-        viewModelScope.launch {
-            val script = Script(name = name, groupId = _selectedGroupId.value)
-            scriptId = scriptRepository.insertScript(script)
-        }
-        return scriptId
+    suspend fun createNewScript(name: String): Long {
+        val script = Script(name = name, groupId = _selectedGroupId.value)
+        return scriptRepository.insertScript(script)
     }
 }
